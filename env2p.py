@@ -1,4 +1,4 @@
-﻿from env import REWARD
+from env import REWARD
 from env import MyPuissance4Env
 
 from tf_agents.trajectories import time_step as ts

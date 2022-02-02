@@ -61,10 +61,10 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         self._time_step_observation = self._observation_spec
         self._time_step_step_type_spec = array_spec.BoundedArraySpec(shape=(), dtype=np.int32, name='step_type', minimum=0)
         self._time_step_discount_spec  = array_spec.BoundedArraySpec(shape=(), dtype=np.float32, name='discount', minimum=0.0, maximum=1.0)
-        self._time_step_REWARD_spec    = array_spec.BoundedArraySpec(shape=(), dtype=np.float32, name='reward', minimum=-1.0, maximum=1.0)
+        self._time_step_reward_spec    = array_spec.BoundedArraySpec(shape=(), dtype=np.float32, name='reward', minimum=-1.0, maximum=1.0)
         self._time_step_spec = TimeStep(
             self._time_step_step_type_spec, 
-            self._time_step_REWARD_spec, 
+            self._time_step_reward_spec, 
             self._time_step_discount_spec, 
             self._time_step_observation
         )
@@ -83,7 +83,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
 #                                            shape=(6, 7),
 #                                            dtype=np.uint8)
 #
-#        self.REWARD.range = (REWARD.LOST, REWARD.WIN)
+#        self.reward_range = (REWARD.LOST, REWARD.WIN)
 #        self.action_space = spaces.Box(low=np.array([0]),
 #                                       high=np.array([Board.WIDTH]),
 #                                       dtype=np.uint8)
@@ -206,21 +206,21 @@ class MyPuissance4Env(py_environment.PyEnvironment):
               )
             self.viewer.add_geom(self.bg)
 
-            self.cumul_REWARD_label = Label("Cumulated reward :", x=5, y=FOOTER_HEIGHT-10, font_size=16)
-            self.viewer.add_geom(self.cumul_REWARD_label)
+            self.cumul_reward_label = Label("Cumulated reward :", x=5, y=FOOTER_HEIGHT-10, font_size=16)
+            self.viewer.add_geom(self.cumul_reward_label)
 
-            self.cumul_REWARD_1_label = Label("0.00", x=250, y=FOOTER_HEIGHT-10, font_size=16)
+            self.cumul_reward_1_label = Label("0.00", x=250, y=FOOTER_HEIGHT-10, font_size=16)
             r, g, b = COLORS[1]
-            self.cumul_REWARD_1_label.set_color(r, g, b)
-            self.viewer.add_geom(self.cumul_REWARD_1_label)
+            self.cumul_reward_1_label.set_color(r, g, b)
+            self.viewer.add_geom(self.cumul_reward_1_label)
 
-            self.cumul_REWARD_2_label = Label("0.00", x=320, y=FOOTER_HEIGHT-10, font_size=16)
+            self.cumul_reward_2_label = Label("0.00", x=320, y=FOOTER_HEIGHT-10, font_size=16)
             r, g, b = COLORS[2]
-            self.cumul_REWARD_2_label.set_color(r, g, b)
-            self.viewer.add_geom(self.cumul_REWARD_2_label)
+            self.cumul_reward_2_label.set_color(r, g, b)
+            self.viewer.add_geom(self.cumul_reward_2_label)
 
-            self.REWARD.label = Label("Reward", x=5, y=FOOTER_HEIGHT-42, font_size=16)
-            self.viewer.add_geom(self.REWARD.label)
+            self.reward_label = Label("Reward", x=5, y=FOOTER_HEIGHT-42, font_size=16)
+            self.viewer.add_geom(self.reward_label)
 
             self.nextplayer_label = Label("Next player :", x=5, y=FOOTER_HEIGHT-74, font_size=16)
             self.viewer.add_geom(self.nextplayer_label)
@@ -262,9 +262,9 @@ class MyPuissance4Env(py_environment.PyEnvironment):
 
         # Edit the colours !
         
-        self.REWARD.label.text = f'Last reward : {self._current_time_step.reward:.2f}'
-        self.cumul_REWARD_1_label.text = f'{self.cumulated_rewards[1]:.2f}'
-        self.cumul_REWARD_2_label.text = f'{self.cumulated_rewards[2]:.2f}'
+        self.reward_label_text = f'Last reward : {self._current_time_step.reward:.2f}'
+        self.cumul_reward_1_label.text = f'{self.cumulated_rewards[1]:.2f}'
+        self.cumul_reward_2_label.text = f'{self.cumulated_rewards[2]:.2f}'
 
         r, g, b = COLORS[self.whoseTurn]
         self.nextplayer_indicator.set_color(r, g, b)
