@@ -5,7 +5,6 @@ from env import REWARD
 from env import MyPuissance4Env
 
 from env2p import TwoPlayerPyEnv
-from board import Board
 
 import numpy as np
 
@@ -15,31 +14,41 @@ from tf_agents.environments import tf_py_environment
 from tf_agents.trajectories import StepType
 from tf_agents.trajectories.policy_step import PolicyStep
 
+NB_ROWS=6
+NB_COLS=7
 
-
+def step_name(timestep):
+  if timestep.step_type == StepType.FIRST:
+    return "FIRST"
+  if timestep.step_type == StepType.MID:
+    return "MID"
+  if timestep.step_type == StepType.LAST:
+    return "LAST"
+  return "???!!!???"
 class MyPuissanc4Test(unittest.TestCase):
   def test_reset(self):
-    env = tf_py_environment.TFPyEnvironment(TwoPlayerPyEnv())
+    py_env = TwoPlayerPyEnv()
+    env = tf_py_environment.TFPyEnvironment(py_env)
     timestep = env.reset()
-    self.assertEqual(timestep.step_type, StepType.FIRST)
+    self.assertEqual(timestep.step_type.numpy(), StepType.FIRST)
     self.assertEqual(timestep.reward.shape, (1))
     self.assertEqual(timestep.reward, 0)
     self.assertEqual(timestep.discount.shape, (1))
     self.assertEqual(timestep.discount, 1)
-    self.assertEqual(timestep.observation.shape, (1,Board.HEIGHT,Board.WIDTH,1))
+    self.assertEqual(timestep.observation.shape, (1,NB_ROWS,NB_COLS,1))
     self.assertEqual(timestep.observation.numpy().min(), 0)
     self.assertEqual(timestep.observation.numpy().max(), 0)
 
     timestep = env.step(0)
-    self.assertEqual(timestep.step_type, StepType.MID)
+    self.assertEqual(timestep.step_type.numpy(), StepType.MID)
     timestep = env.step(1)
     self.assertEqual(timestep.observation.numpy().max(), 1.0)
-    self.assertEqual(timestep.step_type, StepType.MID)
+    self.assertEqual(timestep.step_type.numpy(), StepType.MID)
     timestep = env.reset()
-    self.assertEqual(timestep.step_type, StepType.FIRST)
+    self.assertEqual(timestep.step_type.numpy(), StepType.FIRST)
     self.assertEqual(timestep.reward, 0)
     self.assertEqual(timestep.discount, 1)
-    self.assertEqual(timestep.observation.shape, (1,Board.HEIGHT,Board.WIDTH,1))
+    self.assertEqual(timestep.observation.shape, (1,NB_ROWS,NB_COLS,1))
     self.assertEqual(timestep.observation.numpy().min(), 0)
     self.assertEqual(timestep.observation.numpy().max(), 0)
 
@@ -49,14 +58,14 @@ class MyPuissanc4Test(unittest.TestCase):
       def action(self, ts):
         return PolicyStep(action=0)
 
-    env = tf_py_environment.TFPyEnvironment(TwoPlayerPyEnv(player2_policy=FailingPolicy()))
+    py_env = TwoPlayerPyEnv(player2_policy=FailingPolicy())
+    env = tf_py_environment.TFPyEnvironment(py_env)
     timestep = env.reset()
     timestep = env.step(0)
     timestep = env.step(0)
     timestep = env.step(0)
     timestep = env.step(1)
     self.assertEqual(timestep.is_last(), True)
-    print(timestep.reward==0.1)
 
 
 
@@ -75,13 +84,14 @@ class MyPuissanc4Test(unittest.TestCase):
     self.assertEqual(timestep.reward, REWARD.GOOD_MOVE*3)
 
   def test_step_simple(self):
-    env = tf_py_environment.TFPyEnvironment(TwoPlayerPyEnv())
+    py_env = TwoPlayerPyEnv()
+    env = tf_py_environment.TFPyEnvironment(py_env)
     timestep = env.reset()
     self.assertEqual(timestep.step_type, StepType.FIRST)
     timestep = env.step(0)
     self.assertEqual(timestep.reward, REWARD.GOOD_MOVE)
     self.assertEqual(timestep.discount, np.array(0.95, dtype=np.float32))
-    self.assertEqual(timestep.observation.shape, (1, Board.HEIGHT,Board.WIDTH,1))
+    self.assertEqual(timestep.observation.shape, (1, NB_ROWS,NB_COLS,1))
     self.assertEqual(timestep.observation.numpy().min(), 0)
     self.assertEqual(timestep.observation.numpy().max(), 0.5)
     self.assertEqual(timestep.observation.numpy()[0][0][0], 0.5)
@@ -90,12 +100,12 @@ class MyPuissanc4Test(unittest.TestCase):
     timestep = env.step(0)
     self.assertEqual(timestep.reward, REWARD.GOOD_MOVE)
     self.assertEqual(timestep.discount, np.array(0.95, dtype=np.float32))
-    self.assertEqual(timestep.observation.shape, (1, Board.HEIGHT,Board.WIDTH,1))
+    self.assertEqual(timestep.observation.shape, (1, NB_ROWS,NB_COLS,1))
     self.assertEqual(timestep.observation.numpy().min(), 0)
     self.assertEqual(timestep.observation.numpy().max(), 1.0)
     self.assertEqual(timestep.observation.numpy()[0][0][0], 0.5)
     self.assertEqual(timestep.observation[0][1][0][0], 1)
-    self.assertEqual(timestep.observation[0][0][0+Board.WIDTH-1], 0)
+    self.assertEqual(timestep.observation[0][0][0+NB_COLS-1], 0)
     self.assertEqual(timestep.step_type, StepType.MID)
 
     for _ in range(4):
@@ -111,13 +121,13 @@ class MyPuissanc4Test(unittest.TestCase):
     # FULL !
     timestep = env.reset()
     nb = 0
-    for row in range(Board.HEIGHT):
-      for col in range(Board.WIDTH):    
-        actid = (col + row//3)%Board.WIDTH
+    for row in range(NB_ROWS):
+      for col in range(NB_COLS):    
+        actid = (col + row//3)%NB_COLS
         if nb > 20:
-          actid = Board.WIDTH - actid -1 
+          actid = NB_COLS - actid -1 
         if nb > 26 and nb<34:
-          actid %= Board.WIDTH-2
+          actid %= NB_COLS-2
         if nb == 39:
           actid = 6
         if nb == 40:
@@ -126,6 +136,7 @@ class MyPuissanc4Test(unittest.TestCase):
           actid = 6
         timestep = env.step(actid)
         nb += 1
+
     self.assertEqual(timestep.step_type, StepType.LAST)
     self.assertEqual(timestep.reward, REWARD.DRAW)
 
