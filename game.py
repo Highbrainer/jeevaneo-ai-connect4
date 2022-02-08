@@ -3,9 +3,9 @@ from env import MyPuissance4Env
 from env import REWARD
 
 
-if __name__ == "__main__":
+def main():
     env = MyPuissance4Env()
-    players = [Player(2, True), ManualPlayer()]
+    players = [Player(1, True), ManualPlayer()]
 
     while(True):
         for player in players :
@@ -25,3 +25,6 @@ if __name__ == "__main__":
         elif reward == REWARD.LOST:
             print("Player 2 wins!")
             break
+
+if __name__ == "__main__":
+    main()

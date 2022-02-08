@@ -84,6 +84,10 @@ class BBTest(unittest.TestCase):
         bb.addToColumn(3)
         self.assertEqual(True, bb.hasFour())
 
+    def test_hasFour_dup2(self):
+        bb1 = BB(initial=2223359239)
+        self.assertTrue(bb1.hasFour())
+
     def test_hasFour_diag_down(self):
         bb = BB()
         self.assertEqual(False, bb.hasFour())

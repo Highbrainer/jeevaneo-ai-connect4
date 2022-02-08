@@ -37,7 +37,7 @@ FOOTER_HEIGHT = 6 * 16
 COLOR_PLAYER1 = RED
 COLOR_PLAYER2 = YELLOW
 COLOR_EMPTY = BLACK
-COLORS = [COLOR_EMPTY, COLOR_PLAYER1, COLOR_PLAYER2]
+COLORS = [COLOR_PLAYER1, COLOR_PLAYER2, COLOR_EMPTY]
 
 
 class REWARD:
@@ -214,8 +214,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         return ts.transition(self._state, reward=reward, discount=DISCOUNT)
 
     def _computeColor(self, cell: float):
-        index = 0 if cell == EMPTY else 1 if cell == PLAYER1 else 2
-        print("COLOR[", cell, "]=", index)
+        index = 2 if cell == EMPTY else 0 if cell == PLAYER1 else 1
         return COLORS[index]
 
     def _compute_state(self, bb_current: BB):
@@ -308,7 +307,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             self.viewer.add_geom(self.nextplayer_label)
 
             self.nextplayer_indicator = rendering.make_circle(RADIUS / 3)
-            r, g, b = COLORS[self.whoseTurn+1]
+            r, g, b = COLORS[self.whoseTurn]
             self.nextplayer_indicator.set_color(r, g, b)
             self.nextplayer_indicator.add_attr(
                 rendering.Transform(translation=(200, FOOTER_HEIGHT - 74)))
@@ -359,7 +358,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         self.nextplayer_indicator.set_color(r, g, b)
 
         if self._current_time_step.is_last():
-            if self.winner == 0:
+            if self.winner == 2:
                 self.winner_label.text = "IT's A DRAW"
             else:
                 if self._current_time_step.reward == REWARD.BAD_MOVE:
@@ -368,7 +367,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                     self.step_type_label.text = "BAD MOVE !"
                 r, g, b = COLORS[self.whoseTurn]
                 self.winner_label.set_color(r, g, b)
-                self.winner_label.text = f'PLAYER {self.winner} WINS'
+                self.winner_label.text = f'PLAYER {self.winner+1} WINS'
 
         r, g, b = background_color
         self.bg.set_color(r, g, b)

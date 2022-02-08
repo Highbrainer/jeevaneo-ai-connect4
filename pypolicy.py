@@ -1,4 +1,6 @@
 ﻿from tf_agents.policies.tf_policy import TFPolicy
+from tf_agents.trajectories import TimeStep
+from tf_agents.trajectories.policy_step import PolicyStep
 class PyPolicy:
   def __init__(self, tfpolicy:TFPolicy):
     self.tf_policy=tfpolicy
