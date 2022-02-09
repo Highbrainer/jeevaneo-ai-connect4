@@ -129,4 +129,21 @@ class BBTest(unittest.TestCase):
         self.assertEqual(6, bb.count())
 
 
+    def test_hash(self):
+        bb1 = BB(initial=2223359239)
+        self.assertEqual(bb1.bb, hash(bb1))
+
+    def test_equal(self):
+        bb1 = BB(initial=12)
+        bb2 = BB(initial=12)
+        bb3 = BB(initial=13)
+
+        self.assertEqual(bb1, bb1)
+        self.assertEqual(bb1, bb2)
+        self.assertEqual(bb1, 12)
+        self.assertEqual(12, bb2)
+        self.assertNotEqual(bb1, bb3)
+        self.assertNotEqual(bb1, 1)
+        self.assertNotEqual(1, bb1)
+
 unittest.main(argv=['bidon'], exit=False)

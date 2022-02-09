@@ -11,6 +11,12 @@
             1 << (i + i // self.nb_rows)
             for i in range(self.nb_rows * self.nb_cols)
         ])
+    
+    def __hash__(self):
+        return self.bb
+
+    def __eq__(self, other):
+        return other == self.bb or (isinstance(other, BB) and self.bb == other.bb)
 
     def clear(self):
         self.bb = 0

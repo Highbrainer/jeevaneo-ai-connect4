@@ -5,6 +5,8 @@ from numpy import empty, uint
 from bb import BB
 from env import MyPuissance4Env
 
+from functools import lru_cache
+
 # ### additional imports from plotting
 # import matplotlib.pyplot as plt
 # from igraph import Graph
@@ -271,6 +273,7 @@ class Player:
         return ret
 
     # findMove helper function, utilizing alpha-beta pruning within the  minimax algorithm
+    @lru_cache(maxsize=None)
     def alphaBeta(self, bb1: BB, bb2: BB, depth, player, alpha, beta):
         #debug(f'{self.indent(depth)}alphaBeta({bb1.bb}, {bb2.bb}, {depth}, {player}, {alpha}, {beta})')
 
