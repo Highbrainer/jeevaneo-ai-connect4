@@ -199,7 +199,7 @@ class Player:
         # ### debug graph stuff
         # self.G = Graph()
         # ###
-        score, move, root = self.alphaBeta(env.bb_players[0],
+        score, move, root = Player.alphaBeta(env.bb_players[0],
                                            env.bb_players[1], self.depthLimit,
                                            self.isPlayerOne, -math.inf,
                                            math.inf)
@@ -273,8 +273,8 @@ class Player:
         return ret
 
     # findMove helper function, utilizing alpha-beta pruning within the  minimax algorithm
-    @lru_cache(maxsize=None)
-    def alphaBeta(self, bb1: BB, bb2: BB, depth, player, alpha, beta):
+    @lru_cache(maxsize=32*1024*1024)
+    def alphaBeta(bb1: BB, bb2: BB, depth, player, alpha, beta):
         #debug(f'{self.indent(depth)}alphaBeta({bb1.bb}, {bb2.bb}, {depth}, {player}, {alpha}, {beta})')
 
         bb_current = BB(initial=bb1.bb | bb2.bb)
@@ -323,7 +323,7 @@ class Player:
             #debug(f'{self.indent(depth-1)}Child {i}')
             action, child_bb1, child_bb2 = child
             #debug(f"{self.indent(depth-1)}if player{1 if player else 2} plays {action}...")
-            temp, bm, g_child = self.alphaBeta(child_bb1, child_bb2, depth - 1,
+            temp, bm, g_child = Player.alphaBeta(child_bb1, child_bb2, depth - 1,
                                                not player, alpha, beta)
             if not g_child is None:
                 g_child.action = action
