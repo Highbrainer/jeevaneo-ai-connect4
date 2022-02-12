@@ -29,8 +29,23 @@
             cnt += 1
         return cnt
 
+    def __getitem__(self, key) :
+        if isinstance(key, tuple) and len(key) == 2:
+            return self.get(key[0], key[1])
+        raise IndexError()
 
-    def get(self, row:int, col:int) -> bool:
+    def __setitem__(self, key, value) :
+        if value != 1:
+            raise Exception("Can only set 1 !")
+        if isinstance(key, tuple) and len(key) == 2:
+            return self.set(key[0], key[1])
+        raise IndexError()
+
+    # def __getitem__(self, k1, k2) :
+    #     print("Double key ", k1, k2)
+    #     return 12
+
+    def get(self, row:int, col:int) -> int:
         index = row + self.size * col
         ret = ((self.bb >> index) & 1)
         return ret

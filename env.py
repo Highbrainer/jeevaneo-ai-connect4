@@ -42,12 +42,11 @@ COLORS = [COLOR_PLAYER1, COLOR_PLAYER2, COLOR_EMPTY]
 
 
 class REWARD:
-    LOST = np.float32(-1.0 * 1000)
-    DRAW = np.float32(0.0)
-    WIN = np.float32(1.0 * 1000)
+    DRAW = 0
+    WIN = 100000
+    LOST = -WIN
     BAD_MOVE = -101000 #-MyPuissance4Env.ESTIMATE_4 #np.float32(-0.95 * 1000)
-    OTHER_FAILED = np.float32(0.1 * 1000)
-    GOOD_MOVE = np.float32(0.001 * 1000)
+    OTHER_FAILED = 99000
 
 
 class MyPuissance4Env(py_environment.PyEnvironment):
@@ -69,10 +68,10 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                                                         maximum=6,
                                                         name='action')
         self._observation_spec = array_spec.BoundedArraySpec(
-            shape=(self.nb_rows, self.nb_cols, 1),
+            shape=(self.nb_rows, self.nb_cols, 4),
             dtype=np.float32,
-            minimum=0,
-            maximum=1,
+            minimum=0.0,
+            maximum=1.0,
             name='observation')
         self._time_step_observation = self._observation_spec
         self._time_step_step_type_spec = array_spec.BoundedArraySpec(
@@ -87,8 +86,8 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             shape=(),
             dtype=np.float32,
             name='reward',
-            minimum=-1.0,
-            maximum=1.0)
+            minimum=REWARD.BAD_MOVE,
+            maximum=REWARD.WIN)
         self._time_step_spec = TimeStep(self._time_step_step_type_spec,
                                         self._time_step_reward_spec,
                                         self._time_step_discount_spec,
@@ -194,7 +193,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             self._episode_ended = True
 
         # observation
-        self._state = self._compute_state(bb_current)
+        self._state = self._compute_state()
         self.whoseTurn = self.current_step % 2
 
         reward = MyPuissance4Env.estimate(self.bb_players[0], self.bb_players[1])
@@ -204,20 +203,19 @@ class MyPuissance4Env(py_environment.PyEnvironment):
 
         return ts.transition(self._state, reward=reward, discount=DISCOUNT)
 
-    def _computeColor(self, cell: float):
-        index = 2 if cell == EMPTY else 0 if cell == PLAYER1 else 1
+    def _computeColor(self, cell):
+        index = 0 if cell[0] == 1 else 1 if cell[1] == 1 else 2
         return COLORS[index]
 
-    def _compute_state(self, bb_current: BB):
-        _state = np.zeros((self.nb_rows, self.nb_cols, 1), dtype=np.float32)
-        nb_states = len(self.bb_players)
+    def _compute_state(self):
+        #4 LAYERS  R/G/B/A corresponding to P1/P2/empty/non-empty
+        _state = np.zeros((self.nb_rows, self.nb_cols, 4), dtype=np.float32)        
         for row in range(self.nb_rows):
             for col in range(self.nb_cols):
-                for i, bb in enumerate(self.bb_players):
-                    if bb.get(row, col) == 1:
-                        _state[row][col] = [
-                            (i + 1) / nb_states
-                        ]  # 0 if emtpy, 1 for player 1, 2 for player 2... then keep values between 0 and 1
+                p1 = self.bb_players[0].get(row, col)
+                p2 = self.bb_players[1].get(row, col)
+                not_empty = p1 | p2
+                _state[row][col] = np.array([p1, p2, not not_empty, not_empty]) * 1.0 # as floats
         return _state
 
     def new_BB(self, initial=0):
@@ -233,7 +231,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         self.winner = 2
         self.whoseTurn = 0
         self.bb_players = [self.new_BB(), self.new_BB()]
-        self._state = self._compute_state(self.new_BB())
+        self._state = self._compute_state()
         return ts.restart(self._state)
 
     def render(self, mode="rgb_array", close=False):
@@ -325,7 +323,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                     #print("Go", col, row, "=>", row+col*Board.HEIGHT)
                     #print(obs)
                     cell = rendering.make_circle(RADIUS)
-                    r, g, b = self._computeColor(obs[row, col, 0])
+                    r, g, b = self._computeColor(obs[row, col])
                     cell.set_color(r, g, b)
                     #self.cells[row][col] = cell
                     column.append(cell)
@@ -366,7 +364,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             for row in range(self.nb_rows):
                 #print("Editing ", row, col, len(self.cells), len(self.cells[col]))
                 cell = self.cells[col][row]
-                r, g, b = self._computeColor(obs[row, col, 0])
+                r, g, b = self._computeColor(obs[row, col])
                 cell.set_color(r, g, b)
 
         return self.viewer.render(return_rgb_array=mode == "rgb_array")
@@ -385,27 +383,31 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                                                  timestep.observation)
             new_obs = np.copy(observations.numpy())
             for obs in new_obs:
-                self._inplace_inverse(new_obs)
+                MyPuissance4Env._inplace_inverse(new_obs)
         else:
-            new_obs = timestep.observation
-            self._inplace_inverse(new_obs)
+            new_obs = np.copy(timestep.observation)
+            MyPuissance4Env._inplace_inverse(new_obs)
+
         new_ts = TimeStep(step_type=timestep.step_type,
                           reward=timestep.reward,
                           discount=timestep.discount,
                           observation=new_obs)
         return new_ts
 
-    def _inplace_inverse(self, obs: np.array):
-        for col in obs:
-            for cell in col:
-                cell[0] = 1 if cell[0] == 0.5 else 0.5 if cell[0] == 1 else 0.0
+    # inverse P1 and P2
+    def _inplace_inverse(obs: np.array):
+        for row in obs:
+            for cell in row:
+                c0 = cell[0]
+                c1 = cell[1]
+                cell[0]=c1
+                cell[1]=c0
 
 
-    ESTIMATE_4 = 100000
+    ESTIMATE_4 = REWARD.WIN
     ESTIMATE_3 = 1000
     ESTIMATE_2 = 10
     ESTIMATE_1 = 1
-    ESTIMATE_DRAW = 0
 
     @lru_cache(maxsize=1*1024*1024)
     def estimate(bb1: BB, bb2: BB) -> int:
@@ -415,7 +417,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         if (bb_current.isFull()):
             #debug("ESTIMATION: DRAW !")
             # bb_current.printBB()
-            return MyPuissance4Env.ESTIMATE_DRAW
+            return REWARD.DRAW
 
         #debug(f'Player 1 ({bb1.bb}):')
         estimation_p1 = MyPuissance4Env.estimate_player(bb1, bb2)

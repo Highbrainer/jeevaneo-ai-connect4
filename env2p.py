@@ -1,4 +1,4 @@
-from env import REWARD
+﻿from env import REWARD
 from env import MyPuissance4Env
 
 from tf_agents.trajectories import time_step as ts
@@ -33,6 +33,7 @@ class TwoPlayerPyEnv(MyPuissance4Env):
       time_step = super()._step(action2.action)
       #print("Player2 played", action, "and got ", time_step.reward.numpy()[0])
       if time_step.reward == REWARD.BAD_MOVE:
+        print("BAD MOVE from player 2 !????", time_step)
         return ts.termination(time_step.observation, REWARD.OTHER_FAILED)
 
     return time_step
