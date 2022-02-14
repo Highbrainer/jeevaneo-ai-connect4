@@ -38,6 +38,7 @@ FOOTER_HEIGHT = 6 * 16
 COLOR_PLAYER1 = RED
 COLOR_PLAYER2 = YELLOW
 COLOR_EMPTY = BLACK
+COLOR_WIN = GREEN
 COLORS = [COLOR_PLAYER1, COLOR_PLAYER2, COLOR_EMPTY]
 
 
@@ -159,11 +160,11 @@ class MyPuissance4Env(py_environment.PyEnvironment):
       print("--")
 
     def _inner_step(self, action:int):      
-        self.current_step += 1
-
         if self._episode_ended:
             #print("AUTO RESET !", self.current_step)
             self._reset()
+
+        self.current_step += 1
 
         ok = not self._isColumnAlreadyFull(action)
 
@@ -233,6 +234,59 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         self.bb_players = [self.new_BB(), self.new_BB()]
         self._state = self._compute_state()
         return ts.restart(self._state)
+
+    def _colorize_winning_fours(self):
+        for bb in self.bb_players :             
+            self._colorize_winning_fours_player(bb)
+
+    def _colorize_winning_fours_player(self, bb:BB):
+        r, g, b = COLOR_WIN
+
+        # compute
+         # Check \
+        temp_bboard = bb.bb & (bb.bb >> (bb.size - 1))
+        diagdowns = temp_bboard & (temp_bboard >> (2 * (bb.size - 1)))
+        if diagdowns : 
+            bb2 = BB(initial=diagdowns)
+            for row in range(self.nb_rows):
+                for col in range(self.nb_cols):
+                    if bb2.get(row, col):
+                        print("Found diag down", row, col)
+                        for i in range(4):
+                            self.cells[row-i][col+i].set_color(r,g,b)
+        # Check -
+        temp_bboard = bb.bb & (bb.bb >> bb.size)
+        horizons = temp_bboard & (temp_bboard >> 2 * bb.size)
+        if horizons:
+            bb2 = BB(initial=horizons)
+            for row in range(self.nb_rows):
+                for col in range(self.nb_cols):
+                    if bb2.get(row, col):
+                        print("Found horizontal ", row, col)
+                        for i in range(4):
+                            self.cells[row][col+i].set_color(r,g,b)
+        # Check /
+        temp_bboard = bb.bb & (bb.bb >> (bb.size + 1))
+        diagups = temp_bboard & (temp_bboard >> 2 * (bb.size + 1))
+        if diagups : 
+            bb2 = BB(initial=diagups)
+            for row in range(self.nb_rows):
+                for col in range(self.nb_cols):
+                    if bb2.get(row, col):
+                        print("Found diag up ", row, col)
+                        for i in range(4):
+                            self.cells[row+i][col+i].set_color(r,g,b)
+        # Check |
+        temp_bboard = bb.bb & (bb.bb >> 1)
+        verticals = temp_bboard & (temp_bboard >> 2 * 1)
+        if verticals:
+            bb2 = BB(initial=verticals)
+            for row in range(self.nb_rows):
+                for col in range(self.nb_cols):
+                    if bb2.get(row, col):
+                        print("Found vertical ", row, col)
+                        for i in range(4):
+                            self.cells[row+i][col].set_color(r,g,b)
 
     def render(self, mode="rgb_array", close=False):
         screen_width = self.BOARD_WIDTH
@@ -316,17 +370,17 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             self.viewer.add_geom(self.winner_label)
 
             self.cells = []
-            for col in range(0, self.nb_cols):
-                column = []
-                self.cells.append(column)
-                for row in reversed(range(self.nb_rows)):
+            for row in reversed(range(self.nb_rows)):
+                line = []
+                self.cells.append(line)
+                for col in range(0, self.nb_cols):  
                     #print("Go", col, row, "=>", row+col*Board.HEIGHT)
                     #print(obs)
                     cell = rendering.make_circle(RADIUS)
                     r, g, b = self._computeColor(obs[row, col])
                     cell.set_color(r, g, b)
                     #self.cells[row][col] = cell
-                    column.append(cell)
+                    line.append(cell)
                     cell.add_attr(
                         rendering.Transform(
                             translation=(SPACE + RADIUS + CELL_SIZE * col,
@@ -346,6 +400,15 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         r, g, b = COLORS[self.whoseTurn]
         self.nextplayer_indicator.set_color(r, g, b)
 
+        r, g, b = background_color
+        self.bg.set_color(r, g, b)
+        for col in range(0, self.nb_cols):
+            for row in range(self.nb_rows):
+                #print("Editing ", row, col, len(self.cells), len(self.cells[col]))
+                cell = self.cells[row][col]
+                r, g, b = self._computeColor(obs[row, col])
+                cell.set_color(r, g, b)
+
         if self._current_time_step.is_last():
             if self.winner == 2:
                 self.winner_label.text = "IT's A DRAW"
@@ -357,15 +420,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                 r, g, b = COLORS[self.whoseTurn]
                 self.winner_label.set_color(r, g, b)
                 self.winner_label.text = f'PLAYER {self.winner+1} WINS'
-
-        r, g, b = background_color
-        self.bg.set_color(r, g, b)
-        for col in range(0, self.nb_cols):
-            for row in range(self.nb_rows):
-                #print("Editing ", row, col, len(self.cells), len(self.cells[col]))
-                cell = self.cells[col][row]
-                r, g, b = self._computeColor(obs[row, col])
-                cell.set_color(r, g, b)
+                self._colorize_winning_fours()
 
         return self.viewer.render(return_rgb_array=mode == "rgb_array")
 
