@@ -497,7 +497,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         vthrees = ((bb_estimated.bb & bb_estimated.bb << 1) &
                    ((bb_estimated.bb & bb_estimated.bb << 1) << 1))
         vthrees_with_empty_above = (vthrees << 1) & empty
-        nb_vthrees = BB(initial=vthrees_with_empty_above).count()
+        nb_vthrees = BB.count(vthrees_with_empty_above)
         #debug(f' Found {nb_vthrees} vertical 3s')
         estimation += nb_vthrees * MyPuissance4Env.ESTIMATE_3
 
@@ -505,7 +505,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         # player 1
         vtwos = (bb_estimated.bb & bb_estimated.bb << 1) & ~vthrees
         vtwos_with_empty_above = (vtwos << 1) & empty
-        nb_vtwos = BB(initial=vtwos_with_empty_above).count()
+        nb_vtwos = BB.count(vtwos_with_empty_above)
         #debug(f' Found {nb_vtwos} vertical 2s')
         estimation += nb_vtwos * MyPuissance4Env.ESTIMATE_2
 
@@ -516,12 +516,12 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                    ((bb_estimated.bb & bb_estimated.bb << SHIFT) << SHIFT))
         # three with a free slot on their right
         hthrees_with_empty_right = (hthrees << SHIFT) & empty
-        nb_hthrees_r = BB(initial=hthrees_with_empty_right).count()
+        nb_hthrees_r = BB.count(hthrees_with_empty_right)
         #debug(f' Found {nb_hthrees_r} horizontal 3s with right free space')
         estimation += nb_hthrees_r * MyPuissance4Env.ESTIMATE_3
         # three with a free slot on their left
         hthrees_with_empty_left = (hthrees >> (2 * SHIFT)) & empty
-        nb_hthrees_l = BB(initial=hthrees_with_empty_left).count()
+        nb_hthrees_l = BB.count(hthrees_with_empty_left)
         #debug(f' Found {nb_hthrees_l} horizontal 3s with left free space')
         estimation += nb_hthrees_l * MyPuissance4Env.ESTIMATE_3
 
@@ -529,12 +529,12 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         htwos = bb_estimated.bb & (bb_estimated.bb << SHIFT) & ~hthrees
         # two with a free slot on their right
         htwos_with_empty_right = ((htwos) << SHIFT) & empty
-        nb_htwos_r = BB(initial=htwos_with_empty_right).count()
+        nb_htwos_r = BB.count(htwos_with_empty_right)
         #debug(f' Found {nb_htwos_r} horizontal 2s with right free space')
         estimation += nb_htwos_r * MyPuissance4Env.ESTIMATE_2
         # two with a free slot on their left
         htwos_with_empty_left = (htwos >> (2 * SHIFT)) & empty
-        nb_htwos_l = BB(initial=htwos_with_empty_left).count()
+        nb_htwos_l = BB.count(htwos_with_empty_left)
         #debug(f' Found {nb_htwos_l} horizontal 2s with left free space')
         estimation += nb_htwos_l * MyPuissance4Env.ESTIMATE_2
 
@@ -543,19 +543,19 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             bb_estimated.bb << SHIFT) & ~htwos & ~vtwos & ~hthrees & ~vthrees
         # one with a free slot above
         ones_with_empty_above = (ones << 1) & empty
-        nb_ones_a = BB(initial=ones_with_empty_above).count()
+        nb_ones_a = BB.count(ones_with_empty_above)
         #debug(f' Found {nb_ones_a} slots with a free space above')
         estimation += nb_ones_a * MyPuissance4Env.ESTIMATE_1
 
         # one with a free slot on their right
         ones_with_empty_right = (ones << SHIFT) & empty
-        nb_ones_r = BB(initial=ones_with_empty_right).count()
+        nb_ones_r = BB.count(ones_with_empty_right)
         #debug(f' Found {nb_ones_r} slots with a free space on the right')
         estimation += nb_ones_r * MyPuissance4Env.ESTIMATE_1
 
         # one with a free slot on their left
         ones_with_empty_left = (ones >> SHIFT) & empty
-        nb_ones_l = BB(initial=ones_with_empty_left).count()
+        nb_ones_l = BB.count(ones_with_empty_left)
 
         estimation += nb_ones_l * MyPuissance4Env.ESTIMATE_1
         #debug(f' Found {nb_ones_l} slots with a free space on the left')
@@ -568,14 +568,14 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                                                          (SHIFT + 1))
         # diag up with a free fourth slot on their upper right
         dupthrees_with_empty_up_right = (dupthrees << (SHIFT + 1)) & empty
-        nb_dup_r = BB(initial=dupthrees_with_empty_up_right).count()
+        nb_dup_r = BB.count(dupthrees_with_empty_up_right)
         #debug(f' Found {nb_dup_r} up right diags with a free space on the top right')
         estimation += nb_dup_r * MyPuissance4Env.ESTIMATE_3
 
         # diag up with a free fourth slot on their bottom left
         dupthrees_with_empty_bottom_left = (dupthrees >>
                                             (3 * (SHIFT + 1))) & empty
-        nb_dup_l = BB(initial=dupthrees_with_empty_bottom_left).count()
+        nb_dup_l = BB.count(dupthrees_with_empty_bottom_left)
         #debug(f' Found {nb_dup_l} up right diags with a free space on the bottom left')
         estimation += nb_dup_l * MyPuissance4Env.ESTIMATE_3
 
@@ -588,14 +588,14 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         # diag down with a free fourth slot on their bottom right
         ddownthrees_with_empty_bottom_right = (ddownthrees <<
                                                (SHIFT - 1)) & empty
-        nb_ddown_r = BB(initial=ddownthrees_with_empty_bottom_right).count()
+        nb_ddown_r = BB.count(ddownthrees_with_empty_bottom_right)
         #debug(f' Found {nb_ddown_r} down left diags with a free space on the bottom right')
         estimation += nb_ddown_r * MyPuissance4Env.ESTIMATE_3
 
         # diag down with a free fourth slot on their upper left
         ddownthrees_with_empty_up_left = (ddownthrees >>
                                           (3 * (SHIFT - 1))) & empty
-        nb_ddown_l = BB(initial=ddownthrees_with_empty_up_left).count()
+        nb_ddown_l = BB.count(ddownthrees_with_empty_up_left)
         #debug(f' Found {nb_ddown_l} down left diags with a free space on the upper left')
         estimation += nb_ddown_l * MyPuissance4Env.ESTIMATE_3
 

@@ -21,9 +21,8 @@
     def clear(self):
         self.bb = 0
 
-    def count(self):
+    def count(bb:int):
         cnt = 0
-        bb = self.bb
         while bb != 0:
             bb &= bb-1
             cnt += 1
