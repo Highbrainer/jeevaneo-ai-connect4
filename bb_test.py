@@ -106,27 +106,27 @@ class BBTest(unittest.TestCase):
 
     def test_isFull(self):
         bb = BB()
-        for row in range(bb.nb_rows):
-            for col in range(bb.nb_cols):
+        for row in range(BB.NB_ROWS):
+            for col in range(BB.NB_COLS):
                 self.assertFalse(bb.isFull())
                 bb.set(row, col)
         self.assertTrue(bb.isFull())
 
     def test_count(self):
         bb = BB()
-        self.assertEqual(0, BB.count(bb.bb))
+        self.assertEqual(0, BB.Count(bb.bb))
         bb.set(0, 5)
-        self.assertEqual(1, BB.count(bb.bb))
+        self.assertEqual(1, BB.Count(bb.bb))
         bb.set(1, 4)
-        self.assertEqual(2, BB.count(bb.bb))
+        self.assertEqual(2, BB.Count(bb.bb))
         bb.set(2, 3)
-        self.assertEqual(3, BB.count(bb.bb))
+        self.assertEqual(3, BB.Count(bb.bb))
         bb.set(3, 2)
-        self.assertEqual(4, BB.count(bb.bb))
+        self.assertEqual(4, BB.Count(bb.bb))
         bb.set(3, 1)
-        self.assertEqual(5, BB.count(bb.bb))
+        self.assertEqual(5, BB.Count(bb.bb))
         bb.set(4, 0)
-        self.assertEqual(6, BB.count(bb.bb))
+        self.assertEqual(6, BB.Count(bb.bb))
 
 
     def test_hash(self):

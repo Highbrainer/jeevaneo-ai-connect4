@@ -57,8 +57,8 @@ class Player:
         # ### debug graph stuff
         # self.G = Graph()
         # ###
-        score, move, root = Player.alphaBeta(env.bb_players[0],
-                                           env.bb_players[1], self.depthLimit,
+        score, move, root = Player.alphaBeta(env.bb_players[0].bb,
+                                           env.bb_players[1].bb, self.depthLimit,
                                            self.isPlayerOne, -math.inf,
                                            math.inf)
         ### debug graph stuff
@@ -99,9 +99,9 @@ class Player:
 
         return move
 
-    def children(bb1: BB, bb2: BB, is_player_one: bool):
+    def children(bb1: int, bb2: int, is_player_one: bool):
         ret = []
-        bb_current = BB(initial=bb1.bb | bb2.bb)
+        bb_current = bb1 | bb2
 
         child_bb1 = bb1
         child_bb2 = bb2
@@ -111,11 +111,10 @@ class Player:
         else:
             bb = bb2
 
-        for col in range(bb.nb_cols):
-            for row in range(bb.nb_rows):
-                if bb_current.get(row, col) == 0:
-                    child = BB(initial=bb.bb)
-                    child.set(row, col)
+        for col in range(BB.NB_COLS):
+            for row in range(BB.NB_ROWS):
+                if BB.Get(bb_current, row, col) == 0:
+                    child = BB.Set(bb, row, col)
                     if is_player_one:
                         child_bb1 = child
                     else:
@@ -131,13 +130,13 @@ class Player:
         return ret
 
     # findMove helper function, utilizing alpha-beta pruning within the  minimax algorithm
-    @lru_cache(maxsize=32*1024*1024)
-    def alphaBeta(bb1: BB, bb2: BB, depth, player, alpha, beta):
+    @lru_cache(maxsize=16*1024*1024)
+    def alphaBeta(bb1: int, bb2: int, depth, player, alpha, beta):
         #debug(f'{self.indent(depth)}alphaBeta({bb1.bb}, {bb2.bb}, {depth}, {player}, {alpha}, {beta})')
 
-        bb_current = BB(initial=bb1.bb | bb2.bb)
+        bb_current = bb1 | bb2
         game_over = False
-        if bb_current.isFull():
+        if BB.IsFull(bb_current):
             estimation = -math.inf if player else math.inf
             #debug(f'{self.indent(depth)}returns DRAW {estimation}, {-2}')
             game_over = True
@@ -145,8 +144,8 @@ class Player:
             estimation = MyPuissance4Env.estimate(bb1, bb2)
             #debug(f'{self.indent(depth)}returns LEAF {estimation}, {-1}')
             game_over = True
-        elif bb1.hasFour() or bb2.hasFour(
-        ):  # could optimize by checking only one based on boolean player
+        elif BB.HasFour(bb1) or BB.HasFour(bb2):  
+            # could optimize by checking only one based on boolean player
             estimation = MyPuissance4Env.estimate(bb1, bb2)
             #debug(f'{self.indent(depth)}returns GAME OVER {estimation}, {-1000}')
             game_over = True

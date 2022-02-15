@@ -1,18 +1,30 @@
-﻿class BB:
+﻿# decorator to call static constructor if any
+def static_init(cls):
+    if getattr(cls, "__static_init__", None):
+        cls.__static_init__()
+    return cls
+@static_init
+class BB:
+    NB_ROWS = 6
+    NB_COLS = 7    
 
-    def __init__(self, nb_rows=6, nb_cols=7, initial=0):
-        self.clear()
-        self.nb_rows = nb_rows
-        self.nb_cols = nb_cols
-        self.bb = initial
-        self.size = max(self.nb_rows, self.nb_cols)
-        self.mask_col = sum([1 << i for i in range(self.size)])
-        self.mask_full = sum([
-            1 << (i + i // self.nb_rows)
-            for i in range(self.nb_rows * self.nb_cols)
+    # make us of a static constructor so that these fields get computed only once.
+    @classmethod
+    def __static_init__(BB):
+        BB.SIZE = max(BB.NB_ROWS, BB.NB_COLS)
+        BB.MASK_COL = sum([1 << i for i in range(BB.SIZE)])
+        BB.MASK_FULL = sum([
+            1 << (i + i // BB.NB_ROWS)
+            for i in range(BB.NB_ROWS * BB.NB_COLS)
         ])
+
+    def __init__(self, initial=0):
+        self.bb = initial
     
     def __hash__(self):
+        return self.bb
+
+    def __int__(self):
         return self.bb
 
     def __eq__(self, other):
@@ -21,12 +33,6 @@
     def clear(self):
         self.bb = 0
 
-    def count(bb:int):
-        cnt = 0
-        while bb != 0:
-            bb &= bb-1
-            cnt += 1
-        return cnt
 
     def __getitem__(self, key) :
         if isinstance(key, tuple) and len(key) == 2:
@@ -40,65 +46,83 @@
             return self.set(key[0], key[1])
         raise IndexError()
 
-    # def __getitem__(self, k1, k2) :
-    #     print("Double key ", k1, k2)
-    #     return 12
+    def count(self):
+        return BB.Count(self.bb)
 
+    # STATIC METHODS
+    def Count(bb:int):
+        cnt = 0
+        while bb != 0:
+            bb &= bb-1
+            cnt += 1
+        return cnt
+        
     def get(self, row:int, col:int) -> int:
-        index = row + self.size * col
-        ret = ((self.bb >> index) & 1)
+        return BB.Get(self.bb, row, col)
+
+    def Get(bb:int, row:int, col:int) -> int:
+        index = row + BB.SIZE * col
+        ret = ((bb >> index) & 1)
         return ret
 
     def set(self, row:int, col:int) -> int:
-        if col >= self.nb_cols:
-            raise Exception(
-                f"There are only {self.nb_cols} columns, not {col+1} !")
-        if row >= self.nb_rows:
-            raise Exception(
-                f"There are only {self.nb_rows} rows, not {row+1} !")
-        index = row + self.size * col
-        mask = 1 << int(index)
-        self.bb |= mask
+        self.bb = BB.Set(self.bb, row, col)
         return self.bb
 
+    def Set(bb:int, row:int, col:int) -> int:
+        if col >= BB.NB_COLS:
+            raise Exception(
+                f"There are only {BB.NB_COLS} columns, not {col+1} !")
+        if row >= BB.NB_ROWS:
+            raise Exception(
+                f"There are only {BB.NB_ROWS} rows, not {row+1} !")
+        index = row + BB.SIZE * col
+        return bb | (1 << int(index))
+
     def getCol(self, col):
-        return (self.bb >> (col * self.size)) & self.mask_col
+        return (self.bb >> (col * BB.SIZE)) & self.mask_col
 
     def getRow(self, row):
-        return sum([(self.bb >> (row + self.size * i) & 1) << i
-                    for i in range(self.size)])
+        return sum([(self.bb >> (row + BB.SIZE * i) & 1) << i
+                    for i in range(BB.SIZE)])
 
     def printBB(self):
-        print(self.nb_rows, 'x', self.nb_cols, '=>', self.bb)
-        for row in range(self.nb_rows - 1, -1, -1):
-            print([self.get(row, col) for col in range(self.nb_cols)])
+        print(BB.NB_ROWS, 'x', BB.NB_COLS, '=>', self.bb)
+        for row in reversed(range(BB.NB_ROWS)):
+            print([self.get(row, col) for col in range(BB.NB_COLS)])
 
     def hasFour(self):
+        return BB.HasFour(self.bb)
+
+    def HasFour(bb:int):
         # Check \
-        temp_bboard = self.bb & (self.bb >> (self.size - 1))
-        if (temp_bboard & (temp_bboard >> (2 * (self.size - 1)))):
+        temp_bboard = bb & (bb >> (BB.SIZE - 1))
+        if (temp_bboard & (temp_bboard >> (2 * (BB.SIZE - 1)))):
             return True
         # Check -
-        temp_bboard = self.bb & (self.bb >> self.size)
-        if (temp_bboard & (temp_bboard >> 2 * self.size)):
+        temp_bboard = bb & (bb >> BB.SIZE)
+        if (temp_bboard & (temp_bboard >> 2 * BB.SIZE)):
             return True
         # Check /
-        temp_bboard = self.bb & (self.bb >> (self.size + 1))
-        if (temp_bboard & (temp_bboard >> 2 * (self.size + 1))):
+        temp_bboard = bb & (bb >> (BB.SIZE + 1))
+        if (temp_bboard & (temp_bboard >> 2 * (BB.SIZE + 1))):
             return True
         # Check |
-        temp_bboard = self.bb & (self.bb >> 1)
+        temp_bboard = bb & (bb >> 1)
         if (temp_bboard & (temp_bboard >> 2 * 1)):
             return True
         return False
 
     def isFull(self) -> bool:
-        return (self.bb & self.mask_full) == self.mask_full
+        return BB.IsFull(self.bb)
+
+    def IsFull(bb:int) -> bool:
+        return (bb & BB.MASK_FULL) == BB.MASK_FULL
 
     def addToColumn(self, col):
-        if col >= self.nb_cols:
+        if col >= BB.NB_COLS:
             raise Exception(
-                f"There are only {self.nb_cols} columns, not {col+1} !")
-        for row in range(0, self.nb_rows):
+                f"There are only {BB.NB_COLS} columns, not {col+1} !")
+        for row in range(0, BB.NB_ROWS):
             if self.get(row, col) == 0:
                 return self.set(row, col)

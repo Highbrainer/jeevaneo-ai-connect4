@@ -57,11 +57,11 @@ class MyPuissance4Env(py_environment.PyEnvironment):
     def __init__(self, nb_rows=6, nb_cols=7):
         super().__init__()
 
-        self.nb_rows = nb_rows
-        self.nb_cols = nb_cols
+        BB.NB_ROWS = nb_rows
+        BB.NB_COLS = nb_cols
 
-        self.BOARD_WIDTH = self.nb_cols * CELL_SIZE
-        self.BOARD_HEIGHT = self.nb_rows * CELL_SIZE
+        self.BOARD_WIDTH = BB.NB_COLS * CELL_SIZE
+        self.BOARD_HEIGHT = BB.NB_ROWS * CELL_SIZE
 
         self._action_spec = array_spec.BoundedArraySpec(shape=(),
                                                         dtype=np.int32,
@@ -69,7 +69,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                                                         maximum=6,
                                                         name='action')
         self._observation_spec = array_spec.BoundedArraySpec(
-            shape=(self.nb_rows, self.nb_cols, 4),
+            shape=(BB.NB_ROWS, BB.NB_COLS, 4),
             dtype=np.float32,
             minimum=0.0,
             maximum=1.0,
@@ -131,7 +131,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         return self._current_time_step
 
     def _isColumnAlreadyFull(self, col):
-        return self._compute_current_BB().get(self.nb_rows - 1, col)
+        return self._compute_current_BB().get(BB.NB_ROWS - 1, col)
 
     def _step(self, action:int):
         whoseTurn = self.whoseTurn
@@ -143,7 +143,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         bb_current = 0
         for bb_player in self.bb_players:
             bb_current |= bb_player.bb
-        return self.new_BB(initial=bb_current)
+        return BB(initial=bb_current)
 
     def print_bb(self):
       current = self._compute_current_BB()
@@ -178,7 +178,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
 
         # take action
         bb_current = self._compute_current_BB()
-        for targetRow in range(self.nb_rows):
+        for targetRow in range(BB.NB_ROWS):
             if bb_current.get(targetRow, action) == 0:
                 self.bb_players[self.whoseTurn].set(targetRow, action)
                 #actualize the current view
@@ -186,7 +186,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                 break
 
         # done status
-        if self.bb_players[self.whoseTurn].hasFour():
+        if BB.HasFour(self.bb_players[self.whoseTurn].bb):
             self.winner = self.whoseTurn
             self._episode_ended = True
         elif bb_current.isFull():
@@ -197,7 +197,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         self._state = self._compute_state()
         self.whoseTurn = self.current_step % 2
 
-        reward = MyPuissance4Env.estimate(self.bb_players[0], self.bb_players[1])
+        reward = MyPuissance4Env.estimate(self.bb_players[0].bb, self.bb_players[1].bb)
 
         if self._episode_ended:
             return ts.termination(self._state, reward)
@@ -210,17 +210,14 @@ class MyPuissance4Env(py_environment.PyEnvironment):
 
     def _compute_state(self):
         #4 LAYERS  R/G/B/A corresponding to P1/P2/empty/non-empty
-        _state = np.zeros((self.nb_rows, self.nb_cols, 4), dtype=np.float32)        
-        for row in range(self.nb_rows):
-            for col in range(self.nb_cols):
+        _state = np.zeros((BB.NB_ROWS, BB.NB_COLS, 4), dtype=np.float32)        
+        for row in range(BB.NB_ROWS):
+            for col in range(BB.NB_COLS):
                 p1 = self.bb_players[0].get(row, col)
                 p2 = self.bb_players[1].get(row, col)
                 not_empty = p1 | p2
                 _state[row][col] = np.array([p1, p2, not not_empty, not_empty]) * 1.0 # as floats
         return _state
-
-    def new_BB(self, initial=0):
-        return BB(nb_rows=self.nb_rows, nb_cols=self.nb_cols, initial=initial)
 
     def _reset(self):
         self.viewer = None
@@ -231,7 +228,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         #self.bb_player2 = BB()
         self.winner = 2
         self.whoseTurn = 0
-        self.bb_players = [self.new_BB(), self.new_BB()]
+        self.bb_players = [BB(), BB()]
         self._state = self._compute_state()
         return ts.restart(self._state)
 
@@ -244,34 +241,34 @@ class MyPuissance4Env(py_environment.PyEnvironment):
 
         # compute
          # Check \
-        temp_bboard = bb.bb & (bb.bb >> (bb.size - 1))
-        diagdowns = temp_bboard & (temp_bboard >> (2 * (bb.size - 1)))
+        temp_bboard = bb.bb & (bb.bb >> (BB.SIZE - 1))
+        diagdowns = temp_bboard & (temp_bboard >> (2 * (BB.SIZE - 1)))
         if diagdowns : 
             bb2 = BB(initial=diagdowns)
-            for row in range(self.nb_rows):
-                for col in range(self.nb_cols):
+            for row in range(BB.NB_ROWS):
+                for col in range(BB.NB_COLS):
                     if bb2.get(row, col):
                         print("Found diag down", row, col)
                         for i in range(4):
                             self.cells[row-i][col+i].set_color(r,g,b)
         # Check -
-        temp_bboard = bb.bb & (bb.bb >> bb.size)
-        horizons = temp_bboard & (temp_bboard >> 2 * bb.size)
+        temp_bboard = bb.bb & (bb.bb >> BB.SIZE)
+        horizons = temp_bboard & (temp_bboard >> 2 * BB.SIZE)
         if horizons:
             bb2 = BB(initial=horizons)
-            for row in range(self.nb_rows):
-                for col in range(self.nb_cols):
+            for row in range(BB.NB_ROWS):
+                for col in range(BB.NB_COLS):
                     if bb2.get(row, col):
                         print("Found horizontal ", row, col)
                         for i in range(4):
                             self.cells[row][col+i].set_color(r,g,b)
         # Check /
-        temp_bboard = bb.bb & (bb.bb >> (bb.size + 1))
-        diagups = temp_bboard & (temp_bboard >> 2 * (bb.size + 1))
+        temp_bboard = bb.bb & (bb.bb >> (BB.SIZE + 1))
+        diagups = temp_bboard & (temp_bboard >> 2 * (BB.SIZE + 1))
         if diagups : 
             bb2 = BB(initial=diagups)
-            for row in range(self.nb_rows):
-                for col in range(self.nb_cols):
+            for row in range(BB.NB_ROWS):
+                for col in range(BB.NB_COLS):
                     if bb2.get(row, col):
                         print("Found diag up ", row, col)
                         for i in range(4):
@@ -281,8 +278,8 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         verticals = temp_bboard & (temp_bboard >> 2 * 1)
         if verticals:
             bb2 = BB(initial=verticals)
-            for row in range(self.nb_rows):
-                for col in range(self.nb_cols):
+            for row in range(BB.NB_ROWS):
+                for col in range(BB.NB_COLS):
                     if bb2.get(row, col):
                         print("Found vertical ", row, col)
                         for i in range(4):
@@ -370,10 +367,10 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             self.viewer.add_geom(self.winner_label)
 
             self.cells = []
-            for row in reversed(range(self.nb_rows)):
+            for row in reversed(range(BB.NB_ROWS)):
                 line = []
                 self.cells.append(line)
-                for col in range(0, self.nb_cols):  
+                for col in range(0, BB.NB_COLS):  
                     #print("Go", col, row, "=>", row+col*Board.HEIGHT)
                     #print(obs)
                     cell = rendering.make_circle(RADIUS)
@@ -402,8 +399,8 @@ class MyPuissance4Env(py_environment.PyEnvironment):
 
         r, g, b = background_color
         self.bg.set_color(r, g, b)
-        for col in range(0, self.nb_cols):
-            for row in range(self.nb_rows):
+        for col in range(0, BB.NB_COLS):
+            for row in range(BB.NB_ROWS):
                 #print("Editing ", row, col, len(self.cells), len(self.cells[col]))
                 cell = self.cells[row][col]
                 r, g, b = self._computeColor(obs[row, col])
@@ -465,137 +462,135 @@ class MyPuissance4Env(py_environment.PyEnvironment):
     ESTIMATE_1 = 1
 
     @lru_cache(maxsize=1*1024*1024)
-    def estimate(bb1: BB, bb2: BB) -> int:
+    def estimate(bb1: int, bb2: int) -> int:
 
-        bb_current = BB(initial=bb1.bb | bb2.bb)
+        bb_current = bb1 | bb2
         # draw
-        if (bb_current.isFull()):
+        if BB.IsFull(bb_current):
             #debug("ESTIMATION: DRAW !")
             # bb_current.printBB()
             return REWARD.DRAW
 
-        #debug(f'Player 1 ({bb1.bb}):')
+        #debug(f'Player 1 ({bb1}):')
         estimation_p1 = MyPuissance4Env.estimate_player(bb1, bb2)
-        #debug(f'Player 2 ({bb2.bb}):')
+        #debug(f'Player 2 ({bb2}):')
         estimation_p2 = -MyPuissance4Env.estimate_player(bb2, bb1)
         estimation = estimation_p1 + estimation_p2
         #debug(f'ESTIMATION: P1:{estimation_p1}\tP2:{estimation_p2}\tGLOBAL:{estimation}\t')
         return estimation
 
-    def estimate_player(bb_estimated: BB, bb_other: BB) -> int:
+    def estimate_player(bb_estimated: int, bb_other: int) -> int:
         # 4
-        if bb_estimated.hasFour():
+        if BB.HasFour(bb_estimated):
             #debug(f' Found 4 !')
             return MyPuissance4Env.ESTIMATE_4
 
         estimation = 0
 
-        empty = ~(bb_estimated.bb | bb_other.bb)
+        empty = ~(bb_estimated | bb_other)
 
         # three vertically, with an empty cell above
         # player 1
-        vthrees = ((bb_estimated.bb & bb_estimated.bb << 1) &
-                   ((bb_estimated.bb & bb_estimated.bb << 1) << 1))
+        vthrees = ((bb_estimated & bb_estimated << 1) &
+                   ((bb_estimated & bb_estimated << 1) << 1))
         vthrees_with_empty_above = (vthrees << 1) & empty
-        nb_vthrees = BB.count(vthrees_with_empty_above)
+        nb_vthrees = BB.Count(vthrees_with_empty_above)
         #debug(f' Found {nb_vthrees} vertical 3s')
         estimation += nb_vthrees * MyPuissance4Env.ESTIMATE_3
 
         # two vertically, with an empty cell above
         # player 1
-        vtwos = (bb_estimated.bb & bb_estimated.bb << 1) & ~vthrees
+        vtwos = (bb_estimated & bb_estimated << 1) & ~vthrees
         vtwos_with_empty_above = (vtwos << 1) & empty
-        nb_vtwos = BB.count(vtwos_with_empty_above)
+        nb_vtwos = BB.Count(vtwos_with_empty_above)
         #debug(f' Found {nb_vtwos} vertical 2s')
         estimation += nb_vtwos * MyPuissance4Env.ESTIMATE_2
 
-        SHIFT = bb_estimated.size
-
         # three horizontally
-        hthrees = ((bb_estimated.bb & bb_estimated.bb << SHIFT) &
-                   ((bb_estimated.bb & bb_estimated.bb << SHIFT) << SHIFT))
+        hthrees = ((bb_estimated & bb_estimated << BB.SIZE) &
+                   ((bb_estimated & bb_estimated << BB.SIZE) << BB.SIZE))
         # three with a free slot on their right
-        hthrees_with_empty_right = (hthrees << SHIFT) & empty
-        nb_hthrees_r = BB.count(hthrees_with_empty_right)
+        hthrees_with_empty_right = (hthrees << BB.SIZE) & empty
+        nb_hthrees_r = BB.Count(hthrees_with_empty_right)
         #debug(f' Found {nb_hthrees_r} horizontal 3s with right free space')
         estimation += nb_hthrees_r * MyPuissance4Env.ESTIMATE_3
         # three with a free slot on their left
-        hthrees_with_empty_left = (hthrees >> (2 * SHIFT)) & empty
-        nb_hthrees_l = BB.count(hthrees_with_empty_left)
+        hthrees_with_empty_left = (hthrees >> (2 * BB.SIZE)) & empty
+        nb_hthrees_l = BB.Count(hthrees_with_empty_left)
         #debug(f' Found {nb_hthrees_l} horizontal 3s with left free space')
         estimation += nb_hthrees_l * MyPuissance4Env.ESTIMATE_3
 
         # two horizontally
-        htwos = bb_estimated.bb & (bb_estimated.bb << SHIFT) & ~hthrees
+        htwos = bb_estimated & (bb_estimated << BB.SIZE) & ~hthrees
         # two with a free slot on their right
-        htwos_with_empty_right = ((htwos) << SHIFT) & empty
-        nb_htwos_r = BB.count(htwos_with_empty_right)
+        htwos_with_empty_right = ((htwos) << BB.SIZE) & empty
+        nb_htwos_r = BB.Count(htwos_with_empty_right)
         #debug(f' Found {nb_htwos_r} horizontal 2s with right free space')
         estimation += nb_htwos_r * MyPuissance4Env.ESTIMATE_2
         # two with a free slot on their left
-        htwos_with_empty_left = (htwos >> (2 * SHIFT)) & empty
-        nb_htwos_l = BB.count(htwos_with_empty_left)
+        htwos_with_empty_left = (htwos >> (2 * BB.SIZE)) & empty
+        nb_htwos_l = BB.Count(htwos_with_empty_left)
         #debug(f' Found {nb_htwos_l} horizontal 2s with left free space')
         estimation += nb_htwos_l * MyPuissance4Env.ESTIMATE_2
 
         # one
-        ones = bb_estimated.bb & (
-            bb_estimated.bb << SHIFT) & ~htwos & ~vtwos & ~hthrees & ~vthrees
+        ones = bb_estimated & (
+            bb_estimated << BB.SIZE) & ~htwos & ~vtwos & ~hthrees & ~vthrees
         # one with a free slot above
         ones_with_empty_above = (ones << 1) & empty
-        nb_ones_a = BB.count(ones_with_empty_above)
+        nb_ones_a = BB.Count(ones_with_empty_above)
         #debug(f' Found {nb_ones_a} slots with a free space above')
         estimation += nb_ones_a * MyPuissance4Env.ESTIMATE_1
 
         # one with a free slot on their right
-        ones_with_empty_right = (ones << SHIFT) & empty
-        nb_ones_r = BB.count(ones_with_empty_right)
+        ones_with_empty_right = (ones << BB.SIZE) & empty
+        nb_ones_r = BB.Count(ones_with_empty_right)
         #debug(f' Found {nb_ones_r} slots with a free space on the right')
         estimation += nb_ones_r * MyPuissance4Env.ESTIMATE_1
 
         # one with a free slot on their left
-        ones_with_empty_left = (ones >> SHIFT) & empty
-        nb_ones_l = BB.count(ones_with_empty_left)
+        ones_with_empty_left = (ones >> BB.SIZE) & empty
+        nb_ones_l = BB.Count(ones_with_empty_left)
 
         estimation += nb_ones_l * MyPuissance4Env.ESTIMATE_1
         #debug(f' Found {nb_ones_l} slots with a free space on the left')
 
         # diag down,left>up,right
-        dupthrees = (bb_estimated.bb & (bb_estimated.bb <<
-                                        (SHIFT + 1))) & ((bb_estimated.bb &
-                                                          (bb_estimated.bb <<
-                                                           (SHIFT + 1))) <<
-                                                         (SHIFT + 1))
+        dupthrees = (bb_estimated & (bb_estimated <<
+                                        (BB.SIZE + 1))) & ((bb_estimated &
+                                                          (bb_estimated <<
+                                                           (BB.SIZE + 1))) <<
+                                                         (BB.SIZE + 1))
         # diag up with a free fourth slot on their upper right
-        dupthrees_with_empty_up_right = (dupthrees << (SHIFT + 1)) & empty
-        nb_dup_r = BB.count(dupthrees_with_empty_up_right)
+        dupthrees_with_empty_up_right = (dupthrees << (BB.SIZE + 1)) & empty
+        nb_dup_r = BB.Count(dupthrees_with_empty_up_right)
         #debug(f' Found {nb_dup_r} up right diags with a free space on the top right')
         estimation += nb_dup_r * MyPuissance4Env.ESTIMATE_3
 
         # diag up with a free fourth slot on their bottom left
         dupthrees_with_empty_bottom_left = (dupthrees >>
-                                            (3 * (SHIFT + 1))) & empty
-        nb_dup_l = BB.count(dupthrees_with_empty_bottom_left)
+                                            (3 * (BB.SIZE + 1))) & empty
+        nb_dup_l = BB.Count(dupthrees_with_empty_bottom_left)
         #debug(f' Found {nb_dup_l} up right diags with a free space on the bottom left')
         estimation += nb_dup_l * MyPuissance4Env.ESTIMATE_3
 
         # diag up,left>bottom,right
-        ddownthrees = (bb_estimated.bb & (bb_estimated.bb <<
-                                          (SHIFT - 1))) & ((bb_estimated.bb &
-                                                            (bb_estimated.bb <<
-                                                             (SHIFT - 1))) <<
-                                                           (SHIFT - 1))
+        ddownthrees = (bb_estimated & (bb_estimated <<
+                                          (BB.SIZE - 1))) & ((bb_estimated &
+                                                            (bb_estimated <<
+                                                             (BB.SIZE - 1))) <<
+                                                           (BB.SIZE - 1))
         # diag down with a free fourth slot on their bottom right
         ddownthrees_with_empty_bottom_right = (ddownthrees <<
-                                               (SHIFT - 1)) & empty
-        nb_ddown_r = BB.count(ddownthrees_with_empty_bottom_right)
+                                               (BB.SIZE - 1)) & empty
+        nb_ddown_r = BB.Count(ddownthrees_with_empty_bottom_right)
         #debug(f' Found {nb_ddown_r} down left diags with a free space on the bottom right')
         estimation += nb_ddown_r * MyPuissance4Env.ESTIMATE_3
 
         # diag down with a free fourth slot on their upper left
         ddownthrees_with_empty_up_left = (ddownthrees >>
-                                          (3 * (SHIFT - 1))) & empty
-        nb_ddown_l = BB.count(ddownthrees_with_empty_up_left)
+                                          (3 * (BB.SIZE - 1))) & empty
+        nb_ddown_l = BB.Count(ddownthrees_with_empty_up_left)
         #debug(f' Found {nb_ddown_l} down left diags with a free space on the upper left')
         estimation += nb_ddown_l * MyPuissance4Env.ESTIMATE_3
 
