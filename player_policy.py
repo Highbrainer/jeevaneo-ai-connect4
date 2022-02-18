@@ -3,39 +3,26 @@ from tf_agents.trajectories import TimeStep
 import random
 from bb import BB
 from player import Player
+import numpy as np
 class PlayerPolicy:
-  def __init__(self, env, player:Player):
-    self.env = env
+  def __init__(self, player:Player):
     self.player = player
 
   def action(self, ts : TimeStep):
-    action_id = self.player.findMove(self.env)
+    action_id = self.player.findMove(ts)
     return PolicyStep(action_id, (), ())
 
-class MultiPlayerPolicy:
-  def __init__(self, env, players:list[Player]):
-    self.env = env
-    self.players = players
-    self.current_player = 0
+class PlayerRandomPolicy():
 
   def action(self, ts : TimeStep):
-    action_id = self.players[self.current_player].findMove(self.env)
-    self.current_player += 1
-    self.current_player %= len(self.players)
-
-    return PolicyStep(action_id, (), ())
-
-class PlayerRandomPolicy(PlayerPolicy):
-
-  def action(self, ts : TimeStep):
-    bb_current = self.env._compute_current_BB()
-    free_cols = PlayerRandomPolicy.free_cols(bb_current)
+    free_cols = PlayerRandomPolicy.free_cols(ts)
     random.shuffle(free_cols)
     return PolicyStep(free_cols[0], (), ())
 
-  def free_cols(bb : BB):
-    free_cols = []
-    for col in range(BB.NB_COLS):
-      if bb.get(BB.NB_ROWS-1, col) == 0:
-        free_cols.append(col)
-    return free_cols
+  def free_cols(ts:TimeStep):
+    # convert observation to a couple of BBs
+    obs = ts.observation
+    while len(obs.shape) > 3:
+        obs = obs[0]
+
+    return np.where(obs[BB.NB_ROWS-1,:,3]==0)[0]

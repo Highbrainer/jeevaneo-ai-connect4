@@ -7,6 +7,8 @@ from env import MyPuissance4Env
 
 from functools import lru_cache
 
+from tf_agents.trajectories import TimeStep
+
 # ### additional imports from plotting
 # import matplotlib.pyplot as plt
 # from igraph import Graph
@@ -53,12 +55,27 @@ class Player:
         self.depthLimit = depthLimit
 
     # returns the optimal column to move in by implementing the Alpha-Beta algorithm
-    def findMove(self, env: MyPuissance4Env):
+    def findMove(self, ts : TimeStep):
+
+        # convert observation to a couple of BBs
+        if len(ts.observation.shape) == 3:
+            obs = ts.observation[:,:,0:2]
+        else:
+            obs = ts.observation[0,:,:,0:2]
+        bb_p1=0
+        bb_p2=0
+        for row in range(BB.NB_ROWS):
+            for col in range(BB.NB_COLS):
+                if obs[row,col,0]==1:
+                    bb_p1 = BB.Set(bb=bb_p1, row=row, col=col)
+                if obs[row,col,1]==1:
+                    bb_p2 = BB.Set(bb=bb_p2, row=row, col=col)
+
         # ### debug graph stuff
         # self.G = Graph()
         # ###
-        score, move, root = Player.alphaBeta(env.bb_players[0].bb,
-                                           env.bb_players[1].bb, self.depthLimit,
+        score, move, root = Player.alphaBeta(bb_p1,
+                                           bb_p2, self.depthLimit,
                                            self.isPlayerOne, -math.inf,
                                            math.inf)
         ### debug graph stuff

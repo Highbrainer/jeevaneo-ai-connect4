@@ -7,11 +7,11 @@ def main():
     env = MyPuissance4Env()
     players = [Player(1, True), ManualPlayer()]
 
+    time_step = env.reset()
     while(True):
         for player in players :
-            action = player.findMove(env)
+            action = player.findMove(timestep)
             time_step = env.step(action)
-            print(env.bb_players[0].bb, env.bb_players[1].bb)
             env.print_bb()
 
         # is the game over ?
