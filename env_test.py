@@ -4,6 +4,7 @@ import unittest
 
 from env import REWARD
 from env import MyPuissance4Env
+from bb import BB
 
 from env2p import TwoPlayerPyEnv
 
@@ -185,7 +186,17 @@ class MyPuissanc4Test(unittest.TestCase):
     assert_array_equal([5, 4, 6,  7 ], input[0][1])
     assert_array_equal([9, 8, 10, 11], input[0][2])
 
-
+  def test_bad_move(self):
+    py_env = TwoPlayerPyEnv()
+    env = tf_py_environment.TFPyEnvironment(py_env)
+    timestep = env.reset()
+    self.assertEqual(timestep.step_type, StepType.FIRST)
+    for _ in range(BB.NB_ROWS):
+      timestep = env.step(0)
+      self.assertEqual(timestep.step_type, StepType.MID)
+    timestep = env.step(0)
+    self.assertEqual(timestep.step_type, StepType.LAST)
+    self.assertEqual(timestep.reward, REWARD.BAD_MOVE)
 
   def test_inverse_py(self):
     env= MyPuissance4Env()
