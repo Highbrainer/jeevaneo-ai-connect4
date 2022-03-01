@@ -17,6 +17,9 @@ class PlayerPolicy:
 
 class PlayerRandomPolicy():
 
+  def __str__(self):
+      return f'Random Policy()'
+
   def action(self, ts : TimeStep):
     free_cols = PlayerRandomPolicy.free_cols(ts)
     random.shuffle(free_cols)

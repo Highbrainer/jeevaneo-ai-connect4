@@ -310,8 +310,16 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         reward_label_text = f'Last reward : {self._current_time_step.reward:.2f}'
 
         # prepare fonts
-        font_label = ImageFont.truetype('verdana.ttf', 16)
-        font_big = ImageFont.truetype('verdana.ttf', 32)
+        from matplotlib import font_manager
+        fonts = font_manager.findSystemFonts(fontpaths=None, fontext='ttf')
+        base_fonts = [font for font in fonts if font.__contains__('LiberationSans - Regular.ttf') or font.__contains__('verdana.ttf')]
+        if len(base_fonts) < 1:
+            base_font = fonts[0]
+        else:
+            base_font = base_fonts[0]
+
+        font_label = ImageFont.truetype(base_font, 16)
+        font_big = ImageFont.truetype(base_font, 32)
 
         draw.line((0, FOOTER_TOP, self.BOARD_WIDTH, FOOTER_TOP), fill='white')
 
@@ -339,7 +347,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                 winner_label_color = COLORS[(self.whoseTurn+1)%2]
                 winner_label_text = f'PLAYER {self.winner + 1} WINS'
                 if self._current_time_step.reward == REWARD.BAD_MOVE:
-                    step_type_label_color = COLORS[self.whoseTurn]
+                    step_type_label_color = 'orange'
                     step_type_label_text = "BAD MOVE !"
 
             draw.text((SPACE + 390,FOOTER_TOP + 16), step_type_label_text, font=font_big, fill=step_type_label_color)
