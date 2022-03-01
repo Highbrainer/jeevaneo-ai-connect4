@@ -5,26 +5,26 @@ from env import REWARD
 
 def main():
     env = MyPuissance4Env()
-    players = [Player(1, True), ManualPlayer()]
+    players = [Player(2, True), ManualPlayer()]
+
+    MID = 1
+    LAST = 2
+
+    current_player = 0
 
     time_step = env.reset()
-    while(True):
-        for player in players :
-            action = player.findMove(timestep)
-            time_step = env.step(action)
-            env.print_bb()
+    while time_step.step_type <= MID:
+        player = players[current_player % 2]
+        current_player += 1
+        action = player.findMove(time_step)
+        time_step = env.step(action)
+        env.print_bb()
+        env.render().show()
+        if time_step.step_type == LAST:
+            print("Game over")
+            break
+    print("Player ", ((current_player-1)%2)+1, " wins!")
 
-        # is the game over ?
-        reward = time_step.reward
-        if reward == REWARD.DRAW:
-            print("It's a draw!")
-            break
-        elif reward == REWARD.WIN:
-            print("Player 1 wins!")
-            break
-        elif reward == REWARD.LOST:
-            print("Player 2 wins!")
-            break
 
 if __name__ == "__main__":
     main()

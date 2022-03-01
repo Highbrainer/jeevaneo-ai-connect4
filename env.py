@@ -1,18 +1,17 @@
 ﻿from collections.abc import Iterable
 from functools import lru_cache
 import numpy as np
-from pyglet_utils import Label
 from bb import BB
 
-#import tensorflow as tf
+# import tensorflow as tf
 import tf_agents
 from tf_agents.environments import py_environment
 from tf_agents.specs import array_spec
 from tf_agents.trajectories import time_step as ts
 from tf_agents.trajectories import TimeStep
 
-from gym.envs.classic_control import rendering
-import pyglet.gl
+from PIL import Image, ImageDraw, ImageFont
+from matplotlib import font_manager
 
 DISCOUNT = 0.95
 
@@ -21,18 +20,18 @@ PLAYER1 = np.float32(0.5)
 PLAYER2 = np.float32(1.0)
 
 # Colors
-BLUE = (0, 0.1, 0.8)
-BLACK = (0, 0, 0)
-WHITE = (1, 1, 1)
-GREEN = (0, 1, 0)
-YELLOW = (0.8, 1, 0)
-RED = (1, 0, 0)
+BLUE = 'blue'
+BLACK = 'black'
+WHITE = 'white'
+GREEN = 'green'
+YELLOW = '#CCFF00'
+RED = 'red'
 
 # Display params
 CELL_SIZE = 6 * 16
 RADIUS = 32
 SPACE = (CELL_SIZE - 2 * RADIUS) // 2
-FOOTER_HEIGHT = 6 * 16
+FOOTER_HEIGHT = 6 * 24
 
 # Params
 COLOR_PLAYER1 = RED
@@ -46,7 +45,7 @@ class REWARD:
     DRAW = 0
     WIN = 100000
     LOST = -WIN
-    BAD_MOVE = -101000 #-MyPuissance4Env.ESTIMATE_4 #np.float32(-0.95 * 1000)
+    BAD_MOVE = -101000  # -MyPuissance4Env.ESTIMATE_4 #np.float32(-0.95 * 1000)
     OTHER_FAILED = 99000
 
 
@@ -57,6 +56,8 @@ class MyPuissance4Env(py_environment.PyEnvironment):
     def __init__(self, nb_rows=6, nb_cols=7):
         super().__init__()
 
+        self.nb_rows = nb_rows
+        self.nb_cols = nb_cols
         BB.NB_ROWS = nb_rows
         BB.NB_COLS = nb_cols
 
@@ -133,10 +134,11 @@ class MyPuissance4Env(py_environment.PyEnvironment):
     def _isColumnAlreadyFull(self, col):
         return self._compute_current_BB().get(BB.NB_ROWS - 1, col)
 
-    def _step(self, action:int):
+    def _step(self, action: int):
         whoseTurn = self.whoseTurn
         tstep = self._inner_step(action)
         self.cumulated_rewards[whoseTurn] += tstep.reward
+        self.last_reward = tstep.reward
         return tstep
 
     def _compute_current_BB(self):
@@ -146,22 +148,22 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         return BB(initial=bb_current)
 
     def print_bb(self):
-      current = self._compute_current_BB()
-      for row in reversed(range(current.nb_rows)):
-        line = ""
-        for col in range(current.nb_cols):
-          if current.get(row, col) == 0:
-            line += '_ '
-          else:
-            for i, bb_player in enumerate(self.bb_players):
-              if bb_player.get(row, col) == 1:
-                line += str(i+1) + ' '
-        print(line)
-      print("--")
+        current = self._compute_current_BB()
+        for row in reversed(range(current.NB_ROWS)):
+            line = ""
+            for col in range(current.NB_COLS):
+                if current.get(row, col) == 0:
+                    line += '_ '
+                else:
+                    for i, bb_player in enumerate(self.bb_players):
+                        if bb_player.get(row, col) == 1:
+                            line += str(i + 1) + ' '
+            print(line)
+        print("--")
 
-    def _inner_step(self, action:int):      
+    def _inner_step(self, action: int):
         if self._episode_ended:
-            #print("AUTO RESET !", self.current_step)
+            # print("AUTO RESET !", self.current_step)
             self._reset()
 
         self.current_step += 1
@@ -169,11 +171,11 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         ok = not self._isColumnAlreadyFull(action)
 
         if not ok:
-            #print("BAD MOVE !", self.current_step)
+            # print("BAD MOVE !", self.current_step)
             self._episode_ended = True
             self.winner = (self.whoseTurn + 1) % 2
             self.whoseTurn = 2
-            #print("\n\n\n@@@@@@@@@@ BAD MOVE !!!!! @@@@@@@@@@\n\n\n")
+            # print("\n\n\n@@@@@@@@@@ BAD MOVE !!!!! @@@@@@@@@@\n\n\n")
             return ts.termination(self._state, REWARD.BAD_MOVE)
 
         # take action
@@ -181,7 +183,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         for targetRow in range(BB.NB_ROWS):
             if bb_current.get(targetRow, action) == 0:
                 self.bb_players[self.whoseTurn].set(targetRow, action)
-                #actualize the current view
+                # actualize the current view
                 bb_current = self._compute_current_BB()
                 break
 
@@ -209,14 +211,14 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         return COLORS[index]
 
     def _compute_state(self):
-        #4 LAYERS  R/G/B/A corresponding to P1/P2/empty/non-empty
-        _state = np.zeros((BB.NB_ROWS, BB.NB_COLS, 4), dtype=np.float32)        
+        # 4 LAYERS  R/G/B/A corresponding to P1/P2/empty/non-empty
+        _state = np.zeros((BB.NB_ROWS, BB.NB_COLS, 4), dtype=np.float32)
         for row in range(BB.NB_ROWS):
             for col in range(BB.NB_COLS):
                 p1 = self.bb_players[0].get(row, col)
                 p2 = self.bb_players[1].get(row, col)
                 not_empty = p1 | p2
-                _state[row][col] = np.array([p1, p2, not not_empty, not_empty]) * 1.0 # as floats
+                _state[row][col] = np.array([p1, p2, not not_empty, not_empty]) * 1.0  # as floats
         return _state
 
     def _reset(self):
@@ -224,33 +226,33 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         self.current_step = 0
         self._episode_ended = False
         self.cumulated_rewards = [0.0, 0.0, 0.0]
-        #self.bb_player1 = BB()
-        #self.bb_player2 = BB()
+        self.last_reward = 0.0
+        # self.bb_player1 = BB()
+        # self.bb_player2 = BB()
         self.winner = 2
         self.whoseTurn = 0
         self.bb_players = [BB(), BB()]
         self._state = self._compute_state()
         return ts.restart(self._state)
 
-    def _colorize_winning_fours(self):
-        for bb in self.bb_players :             
-            self._colorize_winning_fours_player(bb)
+    def _colorize_winning_fours(self, draw : ImageDraw):
+        for bb in self.bb_players:
+            self._colorize_winning_fours_player(draw, bb)
 
-    def _colorize_winning_fours_player(self, bb:BB):
-        r, g, b = COLOR_WIN
+    def _colorize_winning_fours_player(self, draw : ImageDraw, bb: BB):
 
         # compute
-         # Check \
+        # Check \
         temp_bboard = bb.bb & (bb.bb >> (BB.SIZE - 1))
         diagdowns = temp_bboard & (temp_bboard >> (2 * (BB.SIZE - 1)))
-        if diagdowns : 
+        if diagdowns:
             bb2 = BB(initial=diagdowns)
             for row in range(BB.NB_ROWS):
                 for col in range(BB.NB_COLS):
                     if bb2.get(row, col):
-                        print("Found diag down", row, col)
+                        #print("Found diag down", row, col)
                         for i in range(4):
-                            self.cells[row-i][col+i].set_color(r,g,b)
+                            self._draw_cell(draw, row - i, col + i, color=COLOR_WIN)
         # Check -
         temp_bboard = bb.bb & (bb.bb >> BB.SIZE)
         horizons = temp_bboard & (temp_bboard >> 2 * BB.SIZE)
@@ -259,20 +261,20 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             for row in range(BB.NB_ROWS):
                 for col in range(BB.NB_COLS):
                     if bb2.get(row, col):
-                        print("Found horizontal ", row, col)
+                        #print("Found horizontal ", row, col)
                         for i in range(4):
-                            self.cells[row][col+i].set_color(r,g,b)
+                            self._draw_cell(draw, row, col + i, color=COLOR_WIN)
         # Check /
         temp_bboard = bb.bb & (bb.bb >> (BB.SIZE + 1))
         diagups = temp_bboard & (temp_bboard >> 2 * (BB.SIZE + 1))
-        if diagups : 
+        if diagups:
             bb2 = BB(initial=diagups)
             for row in range(BB.NB_ROWS):
                 for col in range(BB.NB_COLS):
                     if bb2.get(row, col):
-                        print("Found diag up ", row, col)
+                        #print("Found diag up ", row, col)
                         for i in range(4):
-                            self.cells[row+i][col+i].set_color(r,g,b)
+                            self._draw_cell(draw, row + i, col + i, color=COLOR_WIN)
         # Check |
         temp_bboard = bb.bb & (bb.bb >> 1)
         verticals = temp_bboard & (temp_bboard >> 2 * 1)
@@ -281,150 +283,81 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             for row in range(BB.NB_ROWS):
                 for col in range(BB.NB_COLS):
                     if bb2.get(row, col):
-                        print("Found vertical ", row, col)
+                        #print("Found vertical ", row, col)
                         for i in range(4):
-                            self.cells[row+i][col].set_color(r,g,b)
+                            self._draw_cell(draw, row + i, col, color=COLOR_WIN)
 
     def render(self, mode="rgb_array", close=False):
         screen_width = self.BOARD_WIDTH
         screen_height = self.BOARD_HEIGHT + FOOTER_HEIGHT
+        FOOTER_TOP = self.BOARD_HEIGHT
 
         obs = self._state
 
         background_color = (BLUE if not self._episode_ended else
                             COLORS[self.winner])
-        if self.viewer is None:
 
-            self.viewer = rendering.Viewer(screen_width, screen_height)
-            pyglet.gl.glEnable(pyglet.gl.GL_LINE_SMOOTH)
-            pyglet.gl.glHint(pyglet.gl.GL_LINE_SMOOTH_HINT,
-                             pyglet.gl.GL_NICEST)
+        img = Image.new('RGB', (screen_width, screen_height))
+        draw = ImageDraw.Draw(img)
 
-            #print("Background :", background_color)
+        # draw background color
+        draw.rectangle([(0, 0), (self.BOARD_WIDTH, self.BOARD_HEIGHT)], fill=background_color)
 
-            self.bg = rendering.FilledPolygon([
-                (0, 0),
-                (screen_width, 0),
-                (screen_width, screen_height),
-                (0, screen_height),
-            ],
-                                              #color=background_color,
-                                              )
-            self.viewer.add_geom(self.bg)
+        for row in reversed(range(BB.NB_ROWS)):
+            for col in range(0, BB.NB_COLS):
+                self._draw_cell(draw, row, col, color=self._computeColor(obs[row, col]))
 
-            self.cumul_reward_label = Label("Cumulated reward :",
-                                            x=5,
-                                            y=FOOTER_HEIGHT - 10,
-                                            font_size=16)
-            self.viewer.add_geom(self.cumul_reward_label)
+        reward_label_text = f'Last reward : {self._current_time_step.reward:.2f}'
 
-            self.cumul_reward_1_label = Label("0.00",
-                                              x=250,
-                                              y=FOOTER_HEIGHT - 10,
-                                              font_size=16)
-            r, g, b = COLORS[1]
-            self.cumul_reward_1_label.set_color(r, g, b)
-            self.viewer.add_geom(self.cumul_reward_1_label)
+        # prepare fonts
+        font_label = ImageFont.truetype('verdana.ttf', 16)
+        font_big = ImageFont.truetype('verdana.ttf', 32)
 
-            self.cumul_reward_2_label = Label("0.00",
-                                              x=320,
-                                              y=FOOTER_HEIGHT - 10,
-                                              font_size=16)
-            r, g, b = COLORS[2]
-            self.cumul_reward_2_label.set_color(r, g, b)
-            self.viewer.add_geom(self.cumul_reward_2_label)
+        draw.line((0, FOOTER_TOP, self.BOARD_WIDTH, FOOTER_TOP), fill='white')
 
-            self.reward_label = Label("Reward",
-                                      x=5,
-                                      y=FOOTER_HEIGHT - 42,
-                                      font_size=16)
-            self.viewer.add_geom(self.reward_label)
+        draw.text((SPACE,FOOTER_TOP + 10), "Cumulated rewards :", font=font_label, fill=WHITE)
+        draw.text((SPACE,FOOTER_TOP + 42), "Last reward :", font=font_label, fill=WHITE)
+        draw.text((SPACE + 200,FOOTER_TOP + 42), f"{self.last_reward}", font=font_label, fill=COLORS[(self.whoseTurn+1)%2])
 
-            self.nextplayer_label = Label("Next player :",
-                                          x=5,
-                                          y=FOOTER_HEIGHT - 74,
-                                          font_size=16)
-            self.viewer.add_geom(self.nextplayer_label)
 
-            self.nextplayer_indicator = rendering.make_circle(RADIUS / 3)
-            r, g, b = COLORS[self.whoseTurn]
-            self.nextplayer_indicator.set_color(r, g, b)
-            self.nextplayer_indicator.add_attr(
-                rendering.Transform(translation=(200, FOOTER_HEIGHT - 74)))
-            self.viewer.add_geom(self.nextplayer_indicator)
+        if not self._current_time_step.is_last():
+            draw.text((SPACE,FOOTER_TOP + 74), "Next player :", font=font_label, fill=WHITE)
+            self._draw_circle(draw, SPACE + 200 + RADIUS//3, FOOTER_TOP + 74 + 10, radius=RADIUS//3, fill=COLORS[self.whoseTurn], outline=COLORS[self.whoseTurn])
 
-            self.step_type_label = Label("",
-                                         x=300,
-                                         y=FOOTER_HEIGHT - 16,
-                                         font_size=32,
-                                         color=(255, 128, 0, 255))
-            self.viewer.add_geom(self.step_type_label)
+        draw.text((SPACE + 200,FOOTER_TOP + 10), f'{self.cumulated_rewards[0]:.2f}', font=font_label, fill=COLORS[0])
+        draw.text((SPACE + 320,FOOTER_TOP + 10), f'{self.cumulated_rewards[1]:.2f}', font=font_label, fill=COLORS[1])
 
-            self.winner_label = Label("",
-                                      x=300,
-                                      y=FOOTER_HEIGHT - 58,
-                                      font_size=32)
-            self.viewer.add_geom(self.winner_label)
-
-            self.cells = []
-            for row in reversed(range(BB.NB_ROWS)):
-                line = []
-                self.cells.append(line)
-                for col in range(0, BB.NB_COLS):  
-                    #print("Go", col, row, "=>", row+col*Board.HEIGHT)
-                    #print(obs)
-                    cell = rendering.make_circle(RADIUS)
-                    r, g, b = self._computeColor(obs[row, col])
-                    cell.set_color(r, g, b)
-                    #self.cells[row][col] = cell
-                    line.append(cell)
-                    cell.add_attr(
-                        rendering.Transform(
-                            translation=(SPACE + RADIUS + CELL_SIZE * col,
-                                         FOOTER_HEIGHT + self.BOARD_HEIGHT -
-                                         (SPACE + RADIUS + CELL_SIZE * row))))
-                    self.viewer.add_geom(cell)
-
-    #if self.state is None:
-    #    return None
-
-    # Edit the colours !
-
-        self.reward_label_text = f'Last reward : {self._current_time_step.reward:.2f}'
-        self.cumul_reward_1_label.text = f'{self.cumulated_rewards[1]:.2f}'
-        self.cumul_reward_2_label.text = f'{self.cumulated_rewards[2]:.2f}'
-
-        r, g, b = COLORS[self.whoseTurn]
-        self.nextplayer_indicator.set_color(r, g, b)
-
-        r, g, b = background_color
-        self.bg.set_color(r, g, b)
-        for col in range(0, BB.NB_COLS):
-            for row in range(BB.NB_ROWS):
-                #print("Editing ", row, col, len(self.cells), len(self.cells[col]))
-                cell = self.cells[row][col]
-                r, g, b = self._computeColor(obs[row, col])
-                cell.set_color(r, g, b)
-
+        winner_label_text = ""
+        step_type_label_text = ""
+        winner_label_color = BLUE
+        step_type_label_color = BLUE
         if self._current_time_step.is_last():
             if self.winner == 2:
-                self.winner_label.text = "IT's A DRAW"
+                winner_label_text = "IT'S A DRAW"
+                winner_label_color = WHITE
             else:
+                winner_label_color = COLORS[(self.whoseTurn+1)%2]
+                winner_label_text = f'PLAYER {self.winner + 1} WINS'
                 if self._current_time_step.reward == REWARD.BAD_MOVE:
-                    r, g, b = COLORS[self.whoseTurn]
-                    self.step_type_label.set_color(r, g, b)
-                    self.step_type_label.text = "BAD MOVE !"
-                r, g, b = COLORS[self.whoseTurn]
-                self.winner_label.set_color(r, g, b)
-                self.winner_label.text = f'PLAYER {self.winner+1} WINS'
-                self._colorize_winning_fours()
+                    step_type_label_color = COLORS[self.whoseTurn]
+                    step_type_label_text = "BAD MOVE !"
 
-        return self.viewer.render(return_rgb_array=mode == "rgb_array")
+            draw.text((SPACE + 390,FOOTER_TOP + 16), step_type_label_text, font=font_big, fill=step_type_label_color)
+
+            draw.text((SPACE + 390,FOOTER_TOP + 58), winner_label_text, font=font_big, fill=winner_label_color)
+
+            self._colorize_winning_fours(draw)
+        return img
+
+    def _draw_circle(self, draw: ImageDraw, x: int, y: int, radius: int = RADIUS, fill='white', outline='#666666'):
+        draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=fill, outline=outline)
+
+    def _draw_cell(self, draw: ImageDraw, row: int, col: int, color: int):
+        self._draw_circle(draw, SPACE + RADIUS + CELL_SIZE * col,
+                    self.BOARD_HEIGHT - (SPACE + RADIUS + CELL_SIZE * row), fill=color)
 
     def close(self):
-        if self.viewer:
-            self.viewer.close()
-            self.viewer = None
+        pass
 
     def _inverse(self, timestep: TimeStep):
         if hasattr(timestep.observation.shape, 'rank'):
@@ -452,37 +385,36 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             for cell in row:
                 c0 = cell[0]
                 c1 = cell[1]
-                cell[0]=c1
-                cell[1]=c0
-
+                cell[0] = c1
+                cell[1] = c0
 
     ESTIMATE_4 = REWARD.WIN
     ESTIMATE_3 = 1000
     ESTIMATE_2 = 10
     ESTIMATE_1 = 1
 
-    @lru_cache(maxsize=1*1024*1024)
+    @lru_cache(maxsize=64 * 1024 * 1024)
     def estimate(bb1: int, bb2: int) -> int:
 
         bb_current = bb1 | bb2
         # draw
         if BB.IsFull(bb_current):
-            #debug("ESTIMATION: DRAW !")
+            # debug("ESTIMATION: DRAW !")
             # bb_current.printBB()
             return REWARD.DRAW
 
-        #debug(f'Player 1 ({bb1}):')
+        # debug(f'Player 1 ({bb1}):')
         estimation_p1 = MyPuissance4Env.estimate_player(bb1, bb2)
-        #debug(f'Player 2 ({bb2}):')
+        # debug(f'Player 2 ({bb2}):')
         estimation_p2 = -MyPuissance4Env.estimate_player(bb2, bb1)
         estimation = estimation_p1 + estimation_p2
-        #debug(f'ESTIMATION: P1:{estimation_p1}\tP2:{estimation_p2}\tGLOBAL:{estimation}\t')
+        # debug(f'ESTIMATION: P1:{estimation_p1}\tP2:{estimation_p2}\tGLOBAL:{estimation}\t')
         return estimation
 
     def estimate_player(bb_estimated: int, bb_other: int) -> int:
         # 4
         if BB.HasFour(bb_estimated):
-            #debug(f' Found 4 !')
+            # debug(f' Found 4 !')
             return MyPuissance4Env.ESTIMATE_4
 
         estimation = 0
@@ -495,7 +427,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                    ((bb_estimated & bb_estimated << 1) << 1))
         vthrees_with_empty_above = (vthrees << 1) & empty
         nb_vthrees = BB.Count(vthrees_with_empty_above)
-        #debug(f' Found {nb_vthrees} vertical 3s')
+        # debug(f' Found {nb_vthrees} vertical 3s')
         estimation += nb_vthrees * MyPuissance4Env.ESTIMATE_3
 
         # two vertically, with an empty cell above
@@ -503,7 +435,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         vtwos = (bb_estimated & bb_estimated << 1) & ~vthrees
         vtwos_with_empty_above = (vtwos << 1) & empty
         nb_vtwos = BB.Count(vtwos_with_empty_above)
-        #debug(f' Found {nb_vtwos} vertical 2s')
+        # debug(f' Found {nb_vtwos} vertical 2s')
         estimation += nb_vtwos * MyPuissance4Env.ESTIMATE_2
 
         # three horizontally
@@ -512,12 +444,12 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         # three with a free slot on their right
         hthrees_with_empty_right = (hthrees << BB.SIZE) & empty
         nb_hthrees_r = BB.Count(hthrees_with_empty_right)
-        #debug(f' Found {nb_hthrees_r} horizontal 3s with right free space')
+        # debug(f' Found {nb_hthrees_r} horizontal 3s with right free space')
         estimation += nb_hthrees_r * MyPuissance4Env.ESTIMATE_3
         # three with a free slot on their left
         hthrees_with_empty_left = (hthrees >> (2 * BB.SIZE)) & empty
         nb_hthrees_l = BB.Count(hthrees_with_empty_left)
-        #debug(f' Found {nb_hthrees_l} horizontal 3s with left free space')
+        # debug(f' Found {nb_hthrees_l} horizontal 3s with left free space')
         estimation += nb_hthrees_l * MyPuissance4Env.ESTIMATE_3
 
         # two horizontally
@@ -525,27 +457,27 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         # two with a free slot on their right
         htwos_with_empty_right = ((htwos) << BB.SIZE) & empty
         nb_htwos_r = BB.Count(htwos_with_empty_right)
-        #debug(f' Found {nb_htwos_r} horizontal 2s with right free space')
+        # debug(f' Found {nb_htwos_r} horizontal 2s with right free space')
         estimation += nb_htwos_r * MyPuissance4Env.ESTIMATE_2
         # two with a free slot on their left
         htwos_with_empty_left = (htwos >> (2 * BB.SIZE)) & empty
         nb_htwos_l = BB.Count(htwos_with_empty_left)
-        #debug(f' Found {nb_htwos_l} horizontal 2s with left free space')
+        # debug(f' Found {nb_htwos_l} horizontal 2s with left free space')
         estimation += nb_htwos_l * MyPuissance4Env.ESTIMATE_2
 
         # one
         ones = bb_estimated & (
-            bb_estimated << BB.SIZE) & ~htwos & ~vtwos & ~hthrees & ~vthrees
+                bb_estimated << BB.SIZE) & ~htwos & ~vtwos & ~hthrees & ~vthrees
         # one with a free slot above
         ones_with_empty_above = (ones << 1) & empty
         nb_ones_a = BB.Count(ones_with_empty_above)
-        #debug(f' Found {nb_ones_a} slots with a free space above')
+        # debug(f' Found {nb_ones_a} slots with a free space above')
         estimation += nb_ones_a * MyPuissance4Env.ESTIMATE_1
 
         # one with a free slot on their right
         ones_with_empty_right = (ones << BB.SIZE) & empty
         nb_ones_r = BB.Count(ones_with_empty_right)
-        #debug(f' Found {nb_ones_r} slots with a free space on the right')
+        # debug(f' Found {nb_ones_r} slots with a free space on the right')
         estimation += nb_ones_r * MyPuissance4Env.ESTIMATE_1
 
         # one with a free slot on their left
@@ -553,45 +485,45 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         nb_ones_l = BB.Count(ones_with_empty_left)
 
         estimation += nb_ones_l * MyPuissance4Env.ESTIMATE_1
-        #debug(f' Found {nb_ones_l} slots with a free space on the left')
+        # debug(f' Found {nb_ones_l} slots with a free space on the left')
 
         # diag down,left>up,right
         dupthrees = (bb_estimated & (bb_estimated <<
-                                        (BB.SIZE + 1))) & ((bb_estimated &
-                                                          (bb_estimated <<
-                                                           (BB.SIZE + 1))) <<
-                                                         (BB.SIZE + 1))
+                                     (BB.SIZE + 1))) & ((bb_estimated &
+                                                         (bb_estimated <<
+                                                          (BB.SIZE + 1))) <<
+                                                        (BB.SIZE + 1))
         # diag up with a free fourth slot on their upper right
         dupthrees_with_empty_up_right = (dupthrees << (BB.SIZE + 1)) & empty
         nb_dup_r = BB.Count(dupthrees_with_empty_up_right)
-        #debug(f' Found {nb_dup_r} up right diags with a free space on the top right')
+        # debug(f' Found {nb_dup_r} up right diags with a free space on the top right')
         estimation += nb_dup_r * MyPuissance4Env.ESTIMATE_3
 
         # diag up with a free fourth slot on their bottom left
         dupthrees_with_empty_bottom_left = (dupthrees >>
                                             (3 * (BB.SIZE + 1))) & empty
         nb_dup_l = BB.Count(dupthrees_with_empty_bottom_left)
-        #debug(f' Found {nb_dup_l} up right diags with a free space on the bottom left')
+        # debug(f' Found {nb_dup_l} up right diags with a free space on the bottom left')
         estimation += nb_dup_l * MyPuissance4Env.ESTIMATE_3
 
         # diag up,left>bottom,right
         ddownthrees = (bb_estimated & (bb_estimated <<
-                                          (BB.SIZE - 1))) & ((bb_estimated &
-                                                            (bb_estimated <<
-                                                             (BB.SIZE - 1))) <<
-                                                           (BB.SIZE - 1))
+                                       (BB.SIZE - 1))) & ((bb_estimated &
+                                                           (bb_estimated <<
+                                                            (BB.SIZE - 1))) <<
+                                                          (BB.SIZE - 1))
         # diag down with a free fourth slot on their bottom right
         ddownthrees_with_empty_bottom_right = (ddownthrees <<
                                                (BB.SIZE - 1)) & empty
         nb_ddown_r = BB.Count(ddownthrees_with_empty_bottom_right)
-        #debug(f' Found {nb_ddown_r} down left diags with a free space on the bottom right')
+        # debug(f' Found {nb_ddown_r} down left diags with a free space on the bottom right')
         estimation += nb_ddown_r * MyPuissance4Env.ESTIMATE_3
 
         # diag down with a free fourth slot on their upper left
         ddownthrees_with_empty_up_left = (ddownthrees >>
                                           (3 * (BB.SIZE - 1))) & empty
         nb_ddown_l = BB.Count(ddownthrees_with_empty_up_left)
-        #debug(f' Found {nb_ddown_l} down left diags with a free space on the upper left')
+        # debug(f' Found {nb_ddown_l} down left diags with a free space on the upper left')
         estimation += nb_ddown_l * MyPuissance4Env.ESTIMATE_3
 
         return estimation

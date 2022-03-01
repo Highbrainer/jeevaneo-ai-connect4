@@ -55,31 +55,31 @@ class Player:
         self.depthLimit = depthLimit
 
     # returns the optimal column to move in by implementing the Alpha-Beta algorithm
-    def findMove(self, ts : TimeStep):
+    def findMove(self, ts: TimeStep):
 
         # convert observation to a couple of BBs
         if len(ts.observation.shape) == 3:
-            obs = ts.observation[:,:,0:2]
+            obs = ts.observation[:, :, 0:2]
         else:
-            obs = ts.observation[0,:,:,0:2]
-        bb_p1=0
-        bb_p2=0
+            obs = ts.observation[0, :, :, 0:2]
+        bb_p1 = 0
+        bb_p2 = 0
         for row in range(BB.NB_ROWS):
             for col in range(BB.NB_COLS):
-                if obs[row,col,0]==1:
+                if obs[row, col, 0] == 1:
                     bb_p1 = BB.Set(bb=bb_p1, row=row, col=col)
-                if obs[row,col,1]==1:
+                if obs[row, col, 1] == 1:
                     bb_p2 = BB.Set(bb=bb_p2, row=row, col=col)
 
         # ### debug graph stuff
         # self.G = Graph()
         # ###
         score, move, root = Player.alphaBeta(bb_p1,
-                                           bb_p2, self.depthLimit,
-                                           self.isPlayerOne, -math.inf,
-                                           math.inf)
+                                             bb_p2, self.depthLimit,
+                                             self.isPlayerOne, -math.inf,
+                                             math.inf)
         ### debug graph stuff
-        #showGraph(self.G, root_name=str(root), title=f'Step {env.current_step}')
+        # showGraph(self.G, root_name=str(root), title=f'Step {env.current_step}')
         # pos = graphviz_layout(self.G, prog="dot")
         # fig, ax = plt.subplots()
         # nx.draw(self.G, pos, ax=ax, with_labels=not True, font_weight='bold', font_size=16, node_size=3000 )
@@ -147,24 +147,24 @@ class Player:
         return ret
 
     # findMove helper function, utilizing alpha-beta pruning within the  minimax algorithm
-    @lru_cache(maxsize=16*1024*1024)
+    @lru_cache(maxsize=16 * 1024 * 1024)
     def alphaBeta(bb1: int, bb2: int, depth, player, alpha, beta):
-        #debug(f'{self.indent(depth)}alphaBeta({bb1.bb}, {bb2.bb}, {depth}, {player}, {alpha}, {beta})')
+        # debug(f'{self.indent(depth)}alphaBeta({bb1.bb}, {bb2.bb}, {depth}, {player}, {alpha}, {beta})')
 
         bb_current = bb1 | bb2
         game_over = False
         if BB.IsFull(bb_current):
             estimation = -math.inf if player else math.inf
-            #debug(f'{self.indent(depth)}returns DRAW {estimation}, {-2}')
+            # debug(f'{self.indent(depth)}returns DRAW {estimation}, {-2}')
             game_over = True
         elif depth == 0:
             estimation = MyPuissance4Env.estimate(bb1, bb2)
-            #debug(f'{self.indent(depth)}returns LEAF {estimation}, {-1}')
+            # debug(f'{self.indent(depth)}returns LEAF {estimation}, {-1}')
             game_over = True
-        elif BB.HasFour(bb1) or BB.HasFour(bb2):  
+        elif BB.HasFour(bb1) or BB.HasFour(bb2):
             # could optimize by checking only one based on boolean player
             estimation = MyPuissance4Env.estimate(bb1, bb2)
-            #debug(f'{self.indent(depth)}returns GAME OVER {estimation}, {-1000}')
+            # debug(f'{self.indent(depth)}returns GAME OVER {estimation}, {-1000}')
             game_over = True
 
         ### debug graph stuff
@@ -192,13 +192,13 @@ class Player:
         # ### debug graph stuff
         # g_children = []
         # ###
-        #debug(f'{self.indent(depth)}Found {len(children)} children')
+        # debug(f'{self.indent(depth)}Found {len(children)} children')
         for i, child in enumerate(children):
-            #debug(f'{self.indent(depth-1)}Child {i}')
+            # debug(f'{self.indent(depth-1)}Child {i}')
             action, child_bb1, child_bb2 = child
-            #debug(f"{self.indent(depth-1)}if player{1 if player else 2} plays {action}...")
+            # debug(f"{self.indent(depth-1)}if player{1 if player else 2} plays {action}...")
             temp, bm, g_child = Player.alphaBeta(child_bb1, child_bb2, depth - 1,
-                                               not player, alpha, beta)
+                                                 not player, alpha, beta)
             if not g_child is None:
                 g_child.action = action
             if shouldReplace(temp):
@@ -213,7 +213,7 @@ class Player:
                 beta = min(beta, temp)
             if alpha >= beta:
                 break
-        #debug(f'{self.indent(depth)}returns estimated {bestScore}, {bestMove}')
+        # debug(f'{self.indent(depth)}returns estimated {bestScore}, {bestMove}')
 
         # ### debug graph stuff
         # g_me = GNode(score=bestScore, next=bestMove, bb1=bb1, bb2=bb2)
@@ -227,11 +227,16 @@ class Player:
 
 class ManualPlayer():
 
-    def findMove(self, env: MyPuissance4Env):
+    def findMove(self, ts: TimeStep):
         opts = " "
-        for c in range(env.nb_cols):
+        if len(ts.observation.shape) == 3:
+            obs = ts.observation[:, :, :]
+        else:
+            obs = ts.observation[0, :, :, :]
+
+        for c in range(BB.NB_COLS):
             opts += " " + (str(c + 1)
-                           if env._isColumnAlreadyFull(c) else ' ') + "  "
+                           if obs[BB.NB_ROWS - 1][c][2] == 1 else ' ') + "  "
         print(opts)
 
         col = input("Place a token in column: ")
