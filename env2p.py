@@ -12,6 +12,9 @@ class TwoPlayerPyEnv(MyPuissance4Env):
         self.inverse_observations_for_player2 = inverse_observations_for_player2
         self.current_policy=0
 
+  def __str__(self):
+      return f'{type(self).__name__}(with policies {[str(pol) for pol in self.player2_policies]})'
+
   def _step(self, action):
       
     # player 1

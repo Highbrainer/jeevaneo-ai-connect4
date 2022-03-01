@@ -8,6 +8,9 @@ class PlayerPolicy:
   def __init__(self, player:Player):
     self.player = player
 
+  def __str__(self):
+      return f'Policy for {str(self.player)}'
+
   def action(self, ts : TimeStep):
     action_id = self.player.findMove(ts)
     return PolicyStep(action_id, (), ())

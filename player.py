@@ -54,6 +54,9 @@ class Player:
         self.isPlayerOne = isPlayerOne
         self.depthLimit = depthLimit
 
+    def __str__(self):
+        return f'{type(self).__name__}(minimax={self.depthLimit})'
+
     # returns the optimal column to move in by implementing the Alpha-Beta algorithm
     def findMove(self, ts: TimeStep):
 
@@ -226,6 +229,9 @@ class Player:
 
 
 class ManualPlayer():
+
+    def __str__(self):
+        return f'{type(self).__name__}()'
 
     def findMove(self, ts: TimeStep):
         opts = " "

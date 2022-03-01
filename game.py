@@ -5,7 +5,7 @@ from env import REWARD
 
 def main():
     env = MyPuissance4Env()
-    players = [Player(2, True), ManualPlayer()]
+    players = [ManualPlayer(), Player(7, not True), ]
 
     MID = 1
     LAST = 2
