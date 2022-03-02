@@ -40,26 +40,29 @@ COLOR_EMPTY = BLACK
 COLOR_WIN = GREEN
 COLORS = [COLOR_PLAYER1, COLOR_PLAYER2, COLOR_EMPTY]
 
-
-class REWARD:
-    DRAW = 0
-    WIN = 100000
-    LOST = -WIN
-    BAD_MOVE = -101000  # -MyPuissance4Env.ESTIMATE_4 #np.float32(-0.95 * 1000)
-    OTHER_FAILED = 99000
-
-
 class MyPuissance4Env(py_environment.PyEnvironment):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, nb_rows=6, nb_cols=7):
+    #### rewarding_mode can be 'estimation' : the reward will be base on the estimation of the board
+    #### or 'simple' : reward will be 1 if last player won, 0.5 if it's a draw, 0 otherwise
+    def __init__(self, rewarding_mode='simple'):
         super().__init__()
 
-        self.nb_rows = nb_rows
-        self.nb_cols = nb_cols
-        BB.NB_ROWS = nb_rows
-        BB.NB_COLS = nb_cols
+        self.rewarding_mode = rewarding_mode
+
+        if self.rewarding_mode == 'estimation' :
+            self.REWARD_DRAW = 0.5
+            self.REWARD_WIN = 100000
+            self.REWARD_LOST = -100000
+            self.REWARD_BAD_MOVE = -101000
+            self.REWARD_OTHER_FAILED = 99000
+        else:
+            self.REWARD_DRAW = 0.5
+            self.REWARD_WIN = 1
+            self.REWARD_LOST = -1
+            self.REWARD_BAD_MOVE = -2
+            self.REWARD_OTHER_FAILED = 0.99
 
         self.BOARD_WIDTH = BB.NB_COLS * CELL_SIZE
         self.BOARD_HEIGHT = BB.NB_ROWS * CELL_SIZE
@@ -67,7 +70,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         self._action_spec = array_spec.BoundedArraySpec(shape=(),
                                                         dtype=np.int32,
                                                         minimum=0,
-                                                        maximum=6,
+                                                        maximum=BB.NB_ROWS,
                                                         name='action')
         self._observation_spec = array_spec.BoundedArraySpec(
             shape=(BB.NB_ROWS, BB.NB_COLS, 4),
@@ -88,8 +91,8 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             shape=(),
             dtype=np.float32,
             name='reward',
-            minimum=REWARD.BAD_MOVE,
-            maximum=REWARD.WIN)
+            minimum=self.REWARD_BAD_MOVE,
+            maximum=self.REWARD_WIN)
         self._time_step_spec = TimeStep(self._time_step_step_type_spec,
                                         self._time_step_reward_spec,
                                         self._time_step_discount_spec,
@@ -109,7 +112,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         #                                            shape=(6, 7),
         #                                            dtype=np.uint8)
         #
-        #        self.reward_range = (REWARD.LOST, REWARD.WIN)
+        #        self.reward_range = (self.REWARD_LOST, self.REWARD_WIN)
         #        self.action_space = spaces.Box(low=np.array([0]),
         #                                       high=np.array([Board.WIDTH]),
         #                                       dtype=np.uint8)
@@ -176,7 +179,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             self.winner = (self.whoseTurn + 1) % 2
             self.whoseTurn = 2
             # print("\n\n\n@@@@@@@@@@ BAD MOVE !!!!! @@@@@@@@@@\n\n\n")
-            return ts.termination(self._state, REWARD.BAD_MOVE)
+            return ts.termination(self._state, self.REWARD_BAD_MOVE)
 
         # take action
         bb_current = self._compute_current_BB()
@@ -188,18 +191,22 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                 break
 
         # done status
+        reward = 0
         if BB.HasFour(self.bb_players[self.whoseTurn].bb):
             self.winner = self.whoseTurn
             self._episode_ended = True
+            reward = self.REWARD_WIN
         elif bb_current.isFull():
             self.winner = 2
             self._episode_ended = True
+            reward = self.REWARD_DRAW
 
         # observation
         self._state = self._compute_state()
         self.whoseTurn = self.current_step % 2
 
-        reward = MyPuissance4Env.estimate(self.bb_players[0].bb, self.bb_players[1].bb)
+        if self.rewarding_mode == 'estimation':
+            reward = MyPuissance4Env.estimate(self.bb_players[0].bb, self.bb_players[1].bb)
 
         if self._episode_ended:
             return ts.termination(self._state, reward)
@@ -346,7 +353,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             else:
                 winner_label_color = COLORS[(self.whoseTurn+1)%2]
                 winner_label_text = f'PLAYER {self.winner + 1} WINS'
-                if self._current_time_step.reward == REWARD.BAD_MOVE:
+                if self._current_time_step.reward == self.REWARD_BAD_MOVE:
                     step_type_label_color = 'orange'
                     step_type_label_text = "BAD MOVE !"
 
@@ -396,7 +403,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                 cell[0] = c1
                 cell[1] = c0
 
-    ESTIMATE_4 = REWARD.WIN
+    ESTIMATE_4 = 100000
     ESTIMATE_3 = 1000
     ESTIMATE_2 = 10
     ESTIMATE_1 = 1
@@ -409,7 +416,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         if BB.IsFull(bb_current):
             # debug("ESTIMATION: DRAW !")
             # bb_current.printBB()
-            return REWARD.DRAW
+            return 0
 
         # debug(f'Player 1 ({bb1}):')
         estimation_p1 = MyPuissance4Env.estimate_player(bb1, bb2)
