@@ -40,6 +40,7 @@ COLOR_EMPTY = BLACK
 COLOR_WIN = GREEN
 COLORS = [COLOR_PLAYER1, COLOR_PLAYER2, COLOR_EMPTY]
 
+
 class MyPuissance4Env(py_environment.PyEnvironment):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
@@ -51,7 +52,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
 
         self.rewarding_mode = rewarding_mode
 
-        if self.rewarding_mode == 'estimation' :
+        if self.rewarding_mode == 'estimation':
             self.REWARD_DRAW = 0.5
             self.REWARD_WIN = 100000
             self.REWARD_LOST = -100000
@@ -70,14 +71,28 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         self._action_spec = array_spec.BoundedArraySpec(shape=(),
                                                         dtype=np.int32,
                                                         minimum=0,
-                                                        maximum=BB.NB_ROWS,
+                                                        maximum=BB.NB_COLS - 1,
                                                         name='action')
-        self._observation_spec = array_spec.BoundedArraySpec(
-            shape=(BB.NB_ROWS, BB.NB_COLS, 4),
-            dtype=np.float32,
-            minimum=0.0,
-            maximum=1.0,
-            name='observation')
+        self._observation_spec = {
+            'observation': array_spec.BoundedArraySpec(
+                shape=(BB.NB_ROWS, BB.NB_COLS, 4),
+                dtype=np.float32,
+                minimum=0.0,
+                maximum=1.0,
+                name='observation'),
+            'next_player': array_spec.BoundedArraySpec(
+                name="next_player",
+                shape=(),
+                dtype=np.int32,
+                minimum=0,
+                maximum=1
+            ),
+            'valid_actions': array_spec.ArraySpec(
+                name="valid_actions",
+                shape=(BB.NB_COLS - 1,),
+                dtype=np.bool_
+            )
+        }
         self._time_step_observation = self._observation_spec
         self._time_step_step_type_spec = array_spec.BoundedArraySpec(
             shape=(), dtype=np.int32, name='step_type', minimum=0)
@@ -138,7 +153,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         return self._compute_current_BB().get(BB.NB_ROWS - 1, col)
 
     def _step(self, action: int):
-        whoseTurn = self.whoseTurn
+        whoseTurn = self._state['next_player']
         tstep = self._inner_step(action)
         self.cumulated_rewards[whoseTurn] += tstep.reward
         self.last_reward = tstep.reward
@@ -170,14 +185,15 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             self._reset()
 
         self.current_step += 1
+        whoseTurn = (self.current_step) % 2
 
         ok = not self._isColumnAlreadyFull(action)
 
         if not ok:
             # print("BAD MOVE !", self.current_step)
             self._episode_ended = True
-            self.winner = (self.whoseTurn + 1) % 2
-            self.whoseTurn = 2
+            self.winner = (whoseTurn + 1) % 2
+            self._state['next_player'] = 2
             # print("\n\n\n@@@@@@@@@@ BAD MOVE !!!!! @@@@@@@@@@\n\n\n")
             return ts.termination(self._state, self.REWARD_BAD_MOVE)
 
@@ -185,15 +201,15 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         bb_current = self._compute_current_BB()
         for targetRow in range(BB.NB_ROWS):
             if bb_current.get(targetRow, action) == 0:
-                self.bb_players[self.whoseTurn].set(targetRow, action)
+                self.bb_players[whoseTurn].set(targetRow, action)
                 # actualize the current view
                 bb_current = self._compute_current_BB()
                 break
 
         # done status
         reward = 0
-        if BB.HasFour(self.bb_players[self.whoseTurn].bb):
-            self.winner = self.whoseTurn
+        if BB.HasFour(self.bb_players[whoseTurn].bb):
+            self.winner = whoseTurn
             self._episode_ended = True
             reward = self.REWARD_WIN
         elif bb_current.isFull():
@@ -203,7 +219,6 @@ class MyPuissance4Env(py_environment.PyEnvironment):
 
         # observation
         self._state = self._compute_state()
-        self.whoseTurn = self.current_step % 2
 
         if self.rewarding_mode == 'estimation':
             reward = MyPuissance4Env.estimate(self.bb_players[0].bb, self.bb_players[1].bb)
@@ -218,35 +233,54 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         return COLORS[index]
 
     def _compute_state(self):
+        # _compute_valid_actions_mask() uses _state.observation so affect it in a second time:
+        observation = self._compute_observation()
+        valid_actions_mask = self._compute_valid_actions_mask(observation)
+        next_player = self._compute_next_player()
+        self._state = {'observation': observation, 'valid_actions': valid_actions_mask, 'next_player': next_player}
+        return self._state
+
+    def _compute_observation(self):
         # 4 LAYERS  R/G/B/A corresponding to P1/P2/empty/non-empty
-        _state = np.zeros((BB.NB_ROWS, BB.NB_COLS, 4), dtype=np.float32)
+        # _state = np.zeros((BB.NB_ROWS, BB.NB_COLS, 4), dtype=np.float32)
+        # modifying a np.ndarray is pretty slow - manipulate lists then convert eventually.
+        _observations = []
         for row in range(BB.NB_ROWS):
+            line = []
+            _observations.append(line)
             for col in range(BB.NB_COLS):
                 p1 = self.bb_players[0].get(row, col)
                 p2 = self.bb_players[1].get(row, col)
                 not_empty = p1 | p2
-                _state[row][col] = np.array([p1, p2, not not_empty, not_empty]) * 1.0  # as floats
-        return _state
+                line.append([float(p1), float(p2), float(not not_empty), float(not_empty)])
+        _observations = np.array(_observations, dtype=np.float32)
+        return _observations
+
+    def _compute_valid_actions_mask(self, obs):
+        # available cols have a 0 in the upper cell's fourth layer/element
+        return [bit == 0 for bit in obs[-1, :, 3]]
+
+    def _compute_next_player(self):
+        return (self.current_step + 1) % 2
 
     def _reset(self):
         self.viewer = None
-        self.current_step = 0
+        self.current_step = -1
         self._episode_ended = False
         self.cumulated_rewards = [0.0, 0.0, 0.0]
         self.last_reward = 0.0
         # self.bb_player1 = BB()
         # self.bb_player2 = BB()
         self.winner = 2
-        self.whoseTurn = 0
         self.bb_players = [BB(), BB()]
         self._state = self._compute_state()
         return ts.restart(self._state)
 
-    def _colorize_winning_fours(self, draw : ImageDraw):
+    def _colorize_winning_fours(self, draw: ImageDraw):
         for bb in self.bb_players:
             self._colorize_winning_fours_player(draw, bb)
 
-    def _colorize_winning_fours_player(self, draw : ImageDraw, bb: BB):
+    def _colorize_winning_fours_player(self, draw: ImageDraw, bb: BB):
 
         # compute
         # Check \
@@ -257,7 +291,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             for row in range(BB.NB_ROWS):
                 for col in range(BB.NB_COLS):
                     if bb2.get(row, col):
-                        #print("Found diag down", row, col)
+                        # print("Found diag down", row, col)
                         for i in range(4):
                             self._draw_cell(draw, row - i, col + i, color=COLOR_WIN)
         # Check -
@@ -268,7 +302,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             for row in range(BB.NB_ROWS):
                 for col in range(BB.NB_COLS):
                     if bb2.get(row, col):
-                        #print("Found horizontal ", row, col)
+                        # print("Found horizontal ", row, col)
                         for i in range(4):
                             self._draw_cell(draw, row, col + i, color=COLOR_WIN)
         # Check /
@@ -279,7 +313,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             for row in range(BB.NB_ROWS):
                 for col in range(BB.NB_COLS):
                     if bb2.get(row, col):
-                        #print("Found diag up ", row, col)
+                        # print("Found diag up ", row, col)
                         for i in range(4):
                             self._draw_cell(draw, row + i, col + i, color=COLOR_WIN)
         # Check |
@@ -290,7 +324,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             for row in range(BB.NB_ROWS):
                 for col in range(BB.NB_COLS):
                     if bb2.get(row, col):
-                        #print("Found vertical ", row, col)
+                        # print("Found vertical ", row, col)
                         for i in range(4):
                             self._draw_cell(draw, row + i, col, color=COLOR_WIN)
 
@@ -299,7 +333,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         screen_height = self.BOARD_HEIGHT + FOOTER_HEIGHT
         FOOTER_TOP = self.BOARD_HEIGHT
 
-        obs = self._state
+        obs = self._state['observation']
 
         background_color = (BLUE if not self._episode_ended else
                             COLORS[self.winner])
@@ -319,7 +353,8 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         # prepare fonts
         from matplotlib import font_manager
         fonts = font_manager.findSystemFonts(fontpaths=None, fontext='ttf')
-        base_fonts = [font for font in fonts if font.__contains__('LiberationSans - Regular.ttf') or font.__contains__('verdana.ttf')]
+        base_fonts = [font for font in fonts if
+                      font.__contains__('LiberationSans - Regular.ttf') or font.__contains__('verdana.ttf')]
         if len(base_fonts) < 1:
             base_font = fonts[0]
         else:
@@ -330,17 +365,19 @@ class MyPuissance4Env(py_environment.PyEnvironment):
 
         draw.line((0, FOOTER_TOP, self.BOARD_WIDTH, FOOTER_TOP), fill='white')
 
-        draw.text((SPACE,FOOTER_TOP + 10), "Cumulated rewards :", font=font_label, fill=WHITE)
-        draw.text((SPACE,FOOTER_TOP + 42), "Last reward :", font=font_label, fill=WHITE)
-        draw.text((SPACE + 200,FOOTER_TOP + 42), f"{self.last_reward}", font=font_label, fill=COLORS[(self.whoseTurn+1)%2])
+        draw.text((SPACE, FOOTER_TOP + 10), "Cumulated rewards :", font=font_label, fill=WHITE)
+        draw.text((SPACE, FOOTER_TOP + 42), "Last reward :", font=font_label, fill=WHITE)
+        draw.text((SPACE + 200, FOOTER_TOP + 42), f"{self.last_reward}", font=font_label,
+                  fill=COLORS[self._state['next_player']])
 
-
+        whoseTurn = (self._state['next_player']-1)%2
         if not self._current_time_step.is_last():
-            draw.text((SPACE,FOOTER_TOP + 74), "Next player :", font=font_label, fill=WHITE)
-            self._draw_circle(draw, SPACE + 200 + RADIUS//3, FOOTER_TOP + 74 + 10, radius=RADIUS//3, fill=COLORS[self.whoseTurn], outline=COLORS[self.whoseTurn])
+            draw.text((SPACE, FOOTER_TOP + 74), "Next player :", font=font_label, fill=WHITE)
+            self._draw_circle(draw, SPACE + 200 + RADIUS // 3, FOOTER_TOP + 74 + 10, radius=RADIUS // 3,
+                              fill=COLORS[self._state['next_player']], outline=COLORS[self._state['next_player']])
 
-        draw.text((SPACE + 200,FOOTER_TOP + 10), f'{self.cumulated_rewards[0]:.2f}', font=font_label, fill=COLORS[0])
-        draw.text((SPACE + 320,FOOTER_TOP + 10), f'{self.cumulated_rewards[1]:.2f}', font=font_label, fill=COLORS[1])
+        draw.text((SPACE + 200, FOOTER_TOP + 10), f'{self.cumulated_rewards[0]:.2f}', font=font_label, fill=COLORS[0])
+        draw.text((SPACE + 320, FOOTER_TOP + 10), f'{self.cumulated_rewards[1]:.2f}', font=font_label, fill=COLORS[1])
 
         winner_label_text = ""
         step_type_label_text = ""
@@ -351,15 +388,15 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                 winner_label_text = "IT'S A DRAW"
                 winner_label_color = WHITE
             else:
-                winner_label_color = COLORS[(self.whoseTurn+1)%2]
+                winner_label_color = COLORS[self._state['next_player']]
                 winner_label_text = f'PLAYER {self.winner + 1} WINS'
                 if self._current_time_step.reward == self.REWARD_BAD_MOVE:
                     step_type_label_color = 'orange'
                     step_type_label_text = "BAD MOVE !"
 
-            draw.text((SPACE + 390,FOOTER_TOP + 16), step_type_label_text, font=font_big, fill=step_type_label_color)
+            draw.text((SPACE + 390, FOOTER_TOP + 16), step_type_label_text, font=font_big, fill=step_type_label_color)
 
-            draw.text((SPACE + 390,FOOTER_TOP + 58), winner_label_text, font=font_big, fill=winner_label_color)
+            draw.text((SPACE + 390, FOOTER_TOP + 58), winner_label_text, font=font_big, fill=winner_label_color)
 
             self._colorize_winning_fours(draw)
         return img
@@ -369,15 +406,15 @@ class MyPuissance4Env(py_environment.PyEnvironment):
 
     def _draw_cell(self, draw: ImageDraw, row: int, col: int, color: int):
         self._draw_circle(draw, SPACE + RADIUS + CELL_SIZE * col,
-                    self.BOARD_HEIGHT - (SPACE + RADIUS + CELL_SIZE * row), fill=color)
+                          self.BOARD_HEIGHT - (SPACE + RADIUS + CELL_SIZE * row), fill=color)
 
     def close(self):
         pass
 
     def _inverse(self, timestep: TimeStep):
-        if hasattr(timestep.observation.shape, 'rank'):
+        if hasattr(timestep.observation['observation'].shape, 'rank'):
             outer_rank = tf_agents.utils.nest_utils.get_outer_rank(
-                timestep.observation, self._observation_spec)
+                timestep.observation['observation'], self._observation_spec)
             batch_squash = tf_agents.networks.utils.BatchSquash(outer_rank)
             observations = tf.nest.map_structure(batch_squash.flatten,
                                                  timestep.observation)
@@ -385,13 +422,15 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             for obs in new_obs:
                 MyPuissance4Env._inplace_inverse(new_obs)
         else:
-            new_obs = np.copy(timestep.observation)
+            new_obs = np.copy(timestep.observation['observation'])
             MyPuissance4Env._inplace_inverse(new_obs)
 
+        inversed_observation = {k: v for k, v in timestep.observation.items()}
+        inversed_observation['observation'] = new_obs
         new_ts = TimeStep(step_type=timestep.step_type,
                           reward=timestep.reward,
                           discount=timestep.discount,
-                          observation=new_obs)
+                          observation=inversed_observation)
         return new_ts
 
     # inverse P1 and P2

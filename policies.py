@@ -261,7 +261,7 @@ class RandomPyPolicy(py_policy.PyPolicy):
 
     def free_cols(ts: TimeStep):
         # available cols have a 0 in the upper cell's fourth layer/element
-        obs = ts.observation
+        obs = ts.observation['observation']
         while len(obs.shape) > 3:
             obs = obs[0]
 

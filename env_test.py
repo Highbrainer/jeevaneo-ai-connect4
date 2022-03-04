@@ -2,11 +2,10 @@
 from numpy.testing import assert_array_equal
 import unittest
 
-from env import REWARD
 from env import MyPuissance4Env
 from bb import BB
 
-from env2p import TwoPlayerPyEnv
+from policies import SinglePlayerMonoPolicyPyEnv
 
 import numpy as np
 
@@ -33,7 +32,7 @@ def step_name(timestep):
   return "???!!!???"
 class MyPuissanc4Test(unittest.TestCase):
   def test_reset(self):
-    py_env = TwoPlayerPyEnv()
+    py_env = MyPuissance4Env()
     env = tf_py_environment.TFPyEnvironment(py_env)
     timestep = env.reset()
     self.assertEqual(timestep.step_type.numpy(), StepType.FIRST)
@@ -41,30 +40,51 @@ class MyPuissanc4Test(unittest.TestCase):
     self.assertEqual(timestep.reward, 0)
     self.assertEqual(timestep.discount.shape, (1))
     self.assertEqual(timestep.discount, 1)
-    self.assertEqual(timestep.observation.shape, (1,NB_ROWS,NB_COLS,4))
-    self.assertEqual(timestep.observation.numpy()[:,:,:,0:1].min(), 0)
-    self.assertEqual(timestep.observation.numpy()[:,:,:,0:1].max(), 0)
-    self.assertEqual(timestep.observation.numpy()[:,:,:,3].min(), 0)
-    self.assertEqual(timestep.observation.numpy()[:,:,:,3].max(), 0)
-    self.assertEqual(timestep.observation.numpy()[:,:,:,2].min(), 1)
-    self.assertEqual(timestep.observation.numpy()[:,:,:,2].max(), 1)
+    observation = timestep.observation['observation']
+    self.assertEqual(observation.shape, (1, NB_ROWS, NB_COLS, 4))
+    self.assertEqual(observation.numpy()[:, :, :, 0:1].min(), 0)
+    self.assertEqual(observation.numpy()[:, :, :, 0:1].max(), 0)
+    self.assertEqual(observation.numpy()[:, :, :, 3].min(), 0)
+    self.assertEqual(observation.numpy()[:, :, :, 3].max(), 0)
+    self.assertEqual(observation.numpy()[:, :, :, 2].min(), 1)
+    self.assertEqual(observation.numpy()[:, :, :, 2].max(), 1)
 
     timestep = env.step(0)
     self.assertEqual(timestep.step_type.numpy(), StepType.MID)
     timestep = env.step(1)
-    self.assertEqual(timestep.observation.numpy().max(), 1.0)
+    self.assertEqual(timestep.observation['observation'].numpy().max(), 1.0)
     self.assertEqual(timestep.step_type.numpy(), StepType.MID)
     timestep = env.reset()
     self.assertEqual(timestep.step_type.numpy(), StepType.FIRST)
     self.assertEqual(timestep.reward, 0)
     self.assertEqual(timestep.discount, 1)
-    self.assertEqual(timestep.observation.shape, (1,NB_ROWS,NB_COLS,4))
-    self.assertEqual(timestep.observation.numpy()[:,:,:,0:1].min(), 0)
-    self.assertEqual(timestep.observation.numpy()[:,:,:,0:1].max(), 0)
-    self.assertEqual(timestep.observation.numpy()[:,:,:,3].min(), 0)
-    self.assertEqual(timestep.observation.numpy()[:,:,:,3].max(), 0)
-    self.assertEqual(timestep.observation.numpy()[:,:,:,2].min(), 1)
-    self.assertEqual(timestep.observation.numpy()[:,:,:,2].max(), 1)
+    timestep_observation = timestep.observation['observation']
+    self.assertEqual(timestep_observation.shape, (1, NB_ROWS, NB_COLS, 4))
+    self.assertEqual(timestep_observation.numpy()[:, :, :, 0:1].min(), 0)
+    self.assertEqual(timestep_observation.numpy()[:, :, :, 0:1].max(), 0)
+    self.assertEqual(timestep_observation.numpy()[:, :, :, 3].min(), 0)
+    self.assertEqual(timestep_observation.numpy()[:, :, :, 3].max(), 0)
+    self.assertEqual(timestep_observation.numpy()[:, :, :, 2].min(), 1)
+    self.assertEqual(timestep_observation.numpy()[:, :, :, 2].max(), 1)
+
+  def test_valid_actions(self):
+    py_env = MyPuissance4Env()
+    timestep = py_env.reset()
+    for _ in range(BB.NB_ROWS):
+      self.assertDictContainsSubset({'valid_actions':[True]*BB.NB_COLS}, timestep.observation)
+      timestep = py_env.step(0)
+    self.assertDictContainsSubset({'valid_actions': [False] + [True] * (BB.NB_COLS-1)}, timestep.observation)
+
+  def test_next_player(self):
+    py_env = MyPuissance4Env()
+    timestep = py_env.reset()
+    self.assertDictContainsSubset({'next_player':0}, timestep.observation)
+    timestep = py_env.step(0)
+    self.assertDictContainsSubset({'next_player':1}, timestep.observation)
+    timestep = py_env.step(0)
+    self.assertDictContainsSubset({'next_player':0}, timestep.observation)
+    timestep = py_env.step(0)
+    self.assertDictContainsSubset({'next_player':1}, timestep.observation)
 
   def test_player2_fails(self):
 
@@ -72,7 +92,7 @@ class MyPuissanc4Test(unittest.TestCase):
       def action(self, ts):
         return PolicyStep(action=0)
 
-    py_env = TwoPlayerPyEnv(player2_policy=FailingPolicy())
+    py_env = SinglePlayerMonoPolicyPyEnv(policy=FailingPolicy())
     env = tf_py_environment.TFPyEnvironment(py_env)
     timestep = env.reset()
     timestep = env.step(0)
@@ -82,26 +102,28 @@ class MyPuissanc4Test(unittest.TestCase):
     self.assertEqual(timestep.is_last(), True)
 
   def test_step_simple(self):
-    py_env = TwoPlayerPyEnv()
+    py_env = MyPuissance4Env()
     env = tf_py_environment.TFPyEnvironment(py_env)
     timestep = env.reset()
     self.assertEqual(timestep.step_type, StepType.FIRST)
     timestep = env.step(0)
     self.assertEqual(timestep.discount, np.array(0.95, dtype=np.float32))
-    self.assertEqual(timestep.observation.shape, (1, NB_ROWS,NB_COLS,4))
-    self.assertEqual(timestep.observation.numpy().min(), 0)
-    self.assertEqual(timestep.observation.numpy().max(), 1.0)    
-    assert_array_equal(timestep.observation[0][0][0], P1)
+    observation = timestep.observation['observation']
+    self.assertEqual(observation.shape, (1, NB_ROWS, NB_COLS, 4))
+    self.assertEqual(observation.numpy().min(), 0)
+    self.assertEqual(observation.numpy().max(), 1.0)
+    assert_array_equal(observation[0][0][0], P1)
     self.assertEqual(timestep.step_type, StepType.MID)
     
     timestep = env.step(0)
     self.assertEqual(timestep.discount, np.array(0.95, dtype=np.float32))
-    self.assertEqual(timestep.observation.shape, (1, NB_ROWS,NB_COLS,4))
-    self.assertEqual(timestep.observation.numpy().min(), 0)
-    self.assertEqual(timestep.observation.numpy().max(), 1.0)
-    assert_array_equal(timestep.observation[0][0][0], P1)
-    assert_array_equal(timestep.observation[0][1][0], P2)
-    assert_array_equal(timestep.observation[0][0][0+NB_COLS-1], EMPTY)
+    timestep_observation = timestep.observation['observation']
+    self.assertEqual(timestep_observation.shape, (1, NB_ROWS, NB_COLS, 4))
+    self.assertEqual(timestep_observation.numpy().min(), 0)
+    self.assertEqual(timestep_observation.numpy().max(), 1.0)
+    assert_array_equal(timestep_observation[0][0][0], P1)
+    assert_array_equal(timestep_observation[0][1][0], P2)
+    assert_array_equal(timestep_observation[0][0][0 + NB_COLS - 1], EMPTY)
     self.assertEqual(timestep.step_type, StepType.MID)
 
     for _ in range(4):
@@ -110,7 +132,7 @@ class MyPuissanc4Test(unittest.TestCase):
 
     # BAD MOVE !
     timestep = env.step(0)
-    self.assertEqual(timestep.reward, REWARD.BAD_MOVE)
+    self.assertEqual(timestep.reward, py_env.REWARD_BAD_MOVE)
     self.assertEqual(timestep.step_type, StepType.LAST)
 
     # FULL !
@@ -133,7 +155,7 @@ class MyPuissanc4Test(unittest.TestCase):
         nb += 1
 
     self.assertEqual(timestep.step_type, StepType.LAST)
-    self.assertEqual(timestep.reward, REWARD.DRAW)
+    self.assertEqual(timestep.reward, py_env.REWARD_DRAW)
 
     # WIN TODO
     # 2-2-2
@@ -187,7 +209,7 @@ class MyPuissanc4Test(unittest.TestCase):
     assert_array_equal([9, 8, 10, 11], input[0][2])
 
   def test_bad_move(self):
-    py_env = TwoPlayerPyEnv()
+    py_env = MyPuissance4Env()
     env = tf_py_environment.TFPyEnvironment(py_env)
     timestep = env.reset()
     self.assertEqual(timestep.step_type, StepType.FIRST)
@@ -196,7 +218,7 @@ class MyPuissanc4Test(unittest.TestCase):
       self.assertEqual(timestep.step_type, StepType.MID)
     timestep = env.step(0)
     self.assertEqual(timestep.step_type, StepType.LAST)
-    self.assertEqual(timestep.reward, REWARD.BAD_MOVE)
+    self.assertEqual(timestep.reward, py_env.REWARD_BAD_MOVE)
 
   def test_inverse_py(self):
     env= MyPuissance4Env()
@@ -208,22 +230,24 @@ class MyPuissanc4Test(unittest.TestCase):
 
     inversed = env._inverse(timestep)
 
-    assert_array_equal(timestep.observation[0][0], P1)
-    assert_array_equal(timestep.observation[0][1], P1)
-    assert_array_equal(timestep.observation[1][0], P2)
-    assert_array_equal(timestep.observation[1][1], P2)
+    obs = timestep.observation['observation']
+    assert_array_equal(obs[0][0], P1)
+    assert_array_equal(obs[0][1], P1)
+    assert_array_equal(obs[1][0], P2)
+    assert_array_equal(obs[1][1], P2)
     for col in range(0,7):
       for row in range(0, 6):
         if not (col, row) in [(0,0), (0,1), (1,0), (1,1)]:
-          assert_array_equal(timestep.observation[row][col], EMPTY)
-    
-    assert_array_equal(inversed.observation[0][0], P2)
-    assert_array_equal(inversed.observation[0][1], P2)
-    assert_array_equal(inversed.observation[1][0], P1)
-    assert_array_equal(inversed.observation[1][1], P1)
+          assert_array_equal(obs[row][col], EMPTY)
+
+    inversed_observation = inversed.observation['observation']
+    assert_array_equal(inversed_observation[0][0], P2)
+    assert_array_equal(inversed_observation[0][1], P2)
+    assert_array_equal(inversed_observation[1][0], P1)
+    assert_array_equal(inversed_observation[1][1], P1)
     for col in range(0,7):
       for row in range(0, 6):
         if not (col, row) in [(0,0), (0,1), (1,0), (1,1)]:
-          assert_array_equal(inversed.observation[row][col], EMPTY)
+          assert_array_equal(inversed_observation[row][col], EMPTY)
 
 unittest.main(argv=['bidon'], exit=False)
