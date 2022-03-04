@@ -2,6 +2,8 @@ import json
 import os
 import random
 
+from lazy import LazyDict
+
 from typing import Optional
 
 import tensorflow as tf
@@ -59,20 +61,19 @@ class PolicyManager:
         self.root_dir = root_dir
         self.pyenv = py_env
         self.alpha = alpha
-        self.policies = {}
-        self.ranks = []
         self.ranks_file = os.path.join(self.root_dir, 'ranks.json')
         self.load_policies()
 
     def load_policies(self):
-        self.policies = {'random': RandomPyPolicy(self.pyenv)}
+        self.policies = LazyDict(random=RandomPyPolicy(self.pyenv))
         self.ranks = ['random']
         if not os.path.isdir(self.root_dir):
             print("Creating policy dir :", self.root_dir)
             os.makedirs(self.root_dir)
-        for dir in os.listdir(self.root_dir):
+        for dir in sorted(os.listdir(self.root_dir)):
             if os.path.isdir(os.path.join(self.root_dir, dir)):
-                self.load_policy(dir)
+                print(f'Registering policy "{dir}"')
+                self.policies[dir] = lambda id: self.load_policy(id)
         self._unpersist_ranks()
         # FIXME should check cross integrity (is every dir mentioned in ranks ? Has every rank an existing, valid dir ?
 
@@ -88,11 +89,11 @@ class PolicyManager:
         else:
             # read ranks.json
             in_file = open(self.ranks_file, 'r')
-            self.ranks = json.load(in_file)
+            self.ranks = [id for id in json.load(in_file) if id in self.policies.keys()]
             in_file.close()
         # ensure random is listed
         if not 'random' in self.ranks:
-            self.ranks.append('random')
+            self.ranks.insert(0, 'random')
 
     def _persist_ranks(self):
         # save as ranks.json
@@ -106,7 +107,6 @@ class PolicyManager:
         # tfpol = ZZZTFPolicy(saved_model, time_step_spec=self.pyenv.time_step_spec(), action_spec=self.pyenv.action_spec(), name = id)
 
         pol = ZZZPyPolicy(saved_model, name=id)
-        self.policies[id] = pol
         return pol
 
     ### registers the given policy and adds it as the first rank
@@ -118,7 +118,7 @@ class PolicyManager:
         tf_policy_saver = policy_saver.PolicySaver(tf_policy)
         tf_policy_saver.save(os.path.join(self.root_dir, id))
 
-        self.load_policy(id)
+        self.policies[id] = lambda id: self.load_policy(id)
 
         self.ranks.append(id)
 

@@ -55,13 +55,13 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             self.REWARD_DRAW = 0.5
             self.REWARD_WIN = 100000
             self.REWARD_LOST = -100000
-            self.REWARD_BAD_MOVE = -101000
+            self.REWARD_BAD_MOVE = -100000
             self.REWARD_OTHER_FAILED = 99000
         else:
             self.REWARD_DRAW = 0.5
             self.REWARD_WIN = 1
             self.REWARD_LOST = -1
-            self.REWARD_BAD_MOVE = -2
+            self.REWARD_BAD_MOVE = -1
             self.REWARD_OTHER_FAILED = 0.99
 
         self.BOARD_WIDTH = BB.NB_COLS * CELL_SIZE
