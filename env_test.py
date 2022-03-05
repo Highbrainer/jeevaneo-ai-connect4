@@ -69,9 +69,9 @@ class MyPuissanc4Test(unittest.TestCase):
         py_env = MyPuissance4Env()
         timestep = py_env.reset()
         for _ in range(BB.NB_ROWS):
-            self.assertListEqual([1] * BB.NB_COLS, timestep.observation['valid_actions'])
+            self.assertListEqual([1] * BB.NB_COLS, timestep.observation['valid_actions'].tolist())
             timestep = py_env.step(0)
-        self.assertDictContainsSubset({'valid_actions': [0] + [1] * (BB.NB_COLS - 1)}, timestep.observation)
+        self.assertListEqual([0] + [1] * (BB.NB_COLS - 1), timestep.observation['valid_actions'].tolist())
 
     def test_next_player(self):
         py_env = MyPuissance4Env()

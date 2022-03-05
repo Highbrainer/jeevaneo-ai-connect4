@@ -157,9 +157,11 @@ class PolicyManager:
 
 
 class SinglePlayerPyEnv(MyPuissance4Env):
-    def __init__(self, inverse_observations_for_player2=True):
-        super(SinglePlayerPyEnv, self).__init__()
+    def __init__(self, as_player1=True, inverse_observations_for_player2=False, alternate_player1_player2=False):
+        self.as_player1 = as_player1
+        self.alternate_player1_player2 = alternate_player1_player2
         self.inverse_observations_for_player2 = inverse_observations_for_player2
+        super(SinglePlayerPyEnv, self).__init__()
         self._select_policy()
 
     def __str__(self):
@@ -169,6 +171,24 @@ class SinglePlayerPyEnv(MyPuissance4Env):
         raise 'Implement me by extending my class !'
         self.current_policy_id, self.current_policy = "###NOT INITIALIZED###", None
         return self.current_policy_id, self.current_policy
+
+    def _reset(self):
+        if self.alternate_player1_player2:
+            self.alternate_player1_player2 = not self.alternate_player1_player2
+
+        time_step = super()._reset()
+        if not self.as_player1:
+            if self.inverse_observations_for_player2:
+                t = self._inverse(time_step)
+            else:
+                t = time_step
+
+                # print(t)
+            action_step = self.current_policy.action(t)
+
+            # print("Player2 about to play", action2)
+            time_step = super()._step(action_step.action)
+        return time_step
 
     def _step(self, action):
 
@@ -213,9 +233,9 @@ class SinglePlayerPyEnv(MyPuissance4Env):
 
 
 class SinglePlayerMonoPolicyPyEnv(SinglePlayerPyEnv):
-    def __init__(self, policy, inverse_observations_for_player2=True):
+    def __init__(self, policy, as_player1=True, inverse_observations_for_player2=False, alternate_player1_player2=False):
         self.policy = policy
-        super(SinglePlayerMonoPolicyPyEnv, self).__init__(inverse_observations_for_player2)
+        super(SinglePlayerMonoPolicyPyEnv, self).__init__(inverse_observations_for_player2=inverse_observations_for_player2, as_player1=as_player1, alternate_player1_player2=alternate_player1_player2)
 
     def _select_policy(self):
         self.current_policy_id, self.current_policy = str(self.policy), self.policy
@@ -230,11 +250,11 @@ class SinglePlayerMonoPolicyPyEnv(SinglePlayerPyEnv):
 ### if inverse_observations_for_player2 is True, observations are inversed (player 1 and 2 are switched)
 ### so that player2's policy plays as if it was player 1...
 class SinglePlayerMultiPolicyPyEnv(SinglePlayerPyEnv):
-    def __init__(self, policy_manager_root_dir, alpha=0.75, inverse_observations_for_player2=True):
+    def __init__(self, policy_manager_root_dir, alpha=0.75, as_player1=True, inverse_observations_for_player2=False, alternate_player1_player2=False):
         self.policy_manager_root_dir = policy_manager_root_dir
         self.policy_manager = None  # will be initialized after self as it takes self as a constructor param.
         self.alpha = alpha
-        super(SinglePlayerMultiPolicyPyEnv, self).__init__(inverse_observations_for_player2)
+        super(SinglePlayerMultiPolicyPyEnv, self).__init__(inverse_observations_for_player2=inverse_observations_for_player2, as_player1=as_player1, alternate_player1_player2=alternate_player1_player2)
 
     def _select_policy(self):
         if self.policy_manager is None:

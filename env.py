@@ -259,8 +259,8 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         return _observations
 
     def _compute_valid_actions_mask(self, obs):
-        # available cols have a 0 in the upper cell's fourth layer/element
-        return obs[-1, :, 3].astype(np.int32)
+        # available cols have a 1 in the upper cell's third layer/element
+        return obs[-1, :, 2].astype(np.int32)
 
     def _compute_next_player(self):
         return np.array((self.current_step + 1) % 2)
