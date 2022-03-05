@@ -37,7 +37,7 @@ class ZZZPyPolicy(py_policy.PyPolicy):
     def _action(self, timestep: TimeStep, state=None):
         ps = self.tf_delegate.action(
             TimeStep(step_type=[timestep.step_type], reward=[timestep.reward], discount=[timestep.discount],
-                     observation=[timestep.observation]))
+                     observation={k:[v] for k,v in timestep.observation.items()}))
         return PolicyStep(ps.action[0].numpy(), ps.state, ps.info)
 
 

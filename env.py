@@ -83,14 +83,16 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             'next_player': array_spec.BoundedArraySpec(
                 name="next_player",
                 shape=(),
-                dtype=np.int32,
+                dtype=np.int64,
                 minimum=0,
                 maximum=1
             ),
-            'valid_actions': array_spec.ArraySpec(
+            'valid_actions': array_spec.BoundedArraySpec(
                 name="valid_actions",
-                shape=(BB.NB_COLS - 1,),
-                dtype=np.bool_
+                shape=(BB.NB_COLS,),
+                dtype=np.int32,
+                minimum=0,
+                maximum=1
             )
         }
         self._time_step_observation = self._observation_spec
@@ -258,10 +260,10 @@ class MyPuissance4Env(py_environment.PyEnvironment):
 
     def _compute_valid_actions_mask(self, obs):
         # available cols have a 0 in the upper cell's fourth layer/element
-        return [bit == 0 for bit in obs[-1, :, 3]]
+        return obs[-1, :, 3].astype(np.int32)
 
     def _compute_next_player(self):
-        return (self.current_step + 1) % 2
+        return np.array((self.current_step + 1) % 2)
 
     def _reset(self):
         self.viewer = None
