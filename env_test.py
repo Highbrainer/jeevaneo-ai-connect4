@@ -84,6 +84,46 @@ class MyPuissanc4Test(unittest.TestCase):
         timestep = py_env.step(0)
         self.assertDictContainsSubset({'next_player': 1}, timestep.observation)
 
+    def test_consecutive_victories(self):
+        class LooserPolicy:
+            def __init__(self):
+                self.last_action =-1
+
+            def action(self, timestep, state=None):
+                self.last_action += 2
+                self.last_action %= BB.NB_COLS
+                return PolicyStep(self.last_action, (), ())
+
+        class VerticalPolicy:
+            def __init__(self, col=6):
+                self.column = col
+
+            def action(self, timestep, state=None):
+                return PolicyStep(self.column, (), ())
+
+        l = LooserPolicy()
+        v = VerticalPolicy()
+        py_env = SinglePlayerMonoPolicyPyEnv(policy=l)
+
+        def game(py_env, pypol):
+            ts = py_env.reset()
+            while not ts.step_type==2:
+                actId = pypol.action(pypol).action
+                ts = py_env.step(actId)
+
+        self.assertEqual(0, py_env.consecutive_victories)
+        game(py_env, v) # p1 v vs p2 h ==> p1 wins
+        self.assertEqual(1, py_env.consecutive_victories)
+        game(py_env, v) # p1 v vs p2 h ==> p1 wins
+        self.assertEqual(2, py_env.consecutive_victories)
+        py_env.policy=v
+        game(py_env, l)
+        self.assertEqual(0, py_env.consecutive_victories)
+        game(py_env, l)
+        self.assertEqual(0, py_env.consecutive_victories)
+        game(py_env, v)
+        self.assertEqual(1, py_env.consecutive_victories)
+
     def test_player2_fails(self):
 
         class FailingPolicy():
