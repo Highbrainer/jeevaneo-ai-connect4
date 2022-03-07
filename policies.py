@@ -166,6 +166,7 @@ class SinglePlayerPyEnv(MyPuissance4Env):
         self.inverse_observations_for_player2 = inverse_observations_for_player2
         super(SinglePlayerPyEnv, self).__init__()
         self.consecutive_victories = 0
+        self.history = []
 
     def __str__(self):
         return f'{type(self).__name__}(using policy {self.current_policy_id})'
@@ -182,6 +183,7 @@ class SinglePlayerPyEnv(MyPuissance4Env):
         # print(f"ENV switching to policy #{self.current_policy_id}")
 
         if self.alternate_player1_player2:
+            # print('SWITCH', self.as_player1, "=>", not self.as_player1)
             self.as_player1 = not self.as_player1
 
         time_step = super()._reset()
@@ -242,6 +244,7 @@ class SinglePlayerPyEnv(MyPuissance4Env):
                 self.consecutive_victories += 1
             else:
                 self.consecutive_victories = 0
+            self.history.append((self.current_policy_id, self.as_player1, float(time_step.reward)))
         return time_step
 
 
