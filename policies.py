@@ -162,7 +162,6 @@ class SinglePlayerPyEnv(MyPuissance4Env):
         self.alternate_player1_player2 = alternate_player1_player2
         self.inverse_observations_for_player2 = inverse_observations_for_player2
         super(SinglePlayerPyEnv, self).__init__()
-        self._select_policy()
         self.consecutive_victories = 0
 
     def __str__(self):
@@ -174,6 +173,10 @@ class SinglePlayerPyEnv(MyPuissance4Env):
         return self.current_policy_id, self.current_policy
 
     def _reset(self):
+        print('_reset')
+        # time to change policy !
+        self._select_policy()
+        # print(f"ENV switching to policy #{self.current_policy_id}")
 
         if self.alternate_player1_player2:
             self.as_player1 = not self.as_player1
@@ -186,6 +189,7 @@ class SinglePlayerPyEnv(MyPuissance4Env):
                 t = time_step
 
                 # print(t)
+            print("auto-step - initial - policy as player 1")
             action_step = self.current_policy.action(t)
 
             # print("Player2 about to play", action2)
@@ -195,7 +199,7 @@ class SinglePlayerPyEnv(MyPuissance4Env):
     def _step(self, action):
 
         # player 1
-        # print("Player1 about to play", action)
+        print('auto-step - user playing as player', self._state['next_player']+1)
         time_step = super()._step(action)
         # print("Player1 played", action, "and got", time_step.reward)
 
@@ -213,7 +217,7 @@ class SinglePlayerPyEnv(MyPuissance4Env):
                 # print(t)
             action2 = self.current_policy.action(t)
 
-            # print("Player2 about to play", action2)
+            print('auto-step - policy playing as player', self._state['next_player']+1)
             time_step = super()._step(action2.action)
             # print("Player2 played", action, "and got", time_step.reward)
             # print("Player2 played", action, "and got ", time_step.reward.numpy()[0])
@@ -226,10 +230,7 @@ class SinglePlayerPyEnv(MyPuissance4Env):
                                      reward=-time_step.reward,
                                      discount=time_step.discount,
                                      observation=time_step.observation)
-        else:
-            # time to change policy !
-            self._select_policy()
-            # print(f"ENV switching to policy #{self.current_policy_id}")
+
         # print("last ?", time_step.is_last())
 
         if time_step.is_last():
