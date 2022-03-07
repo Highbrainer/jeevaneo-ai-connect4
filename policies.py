@@ -2,6 +2,8 @@ import json
 import os
 import random
 
+import tf_agents.policies.random_tf_policy
+
 from lazy import LazyDict
 
 from typing import Optional
@@ -60,12 +62,13 @@ class PolicyManager:
     def __init__(self, root_dir: str, py_env: MyPuissance4Env, alpha: float = 0.75):
         self.root_dir = root_dir
         self.pyenv = py_env
+        self.tfenv = tf_agents.environments.TFPyEnvironment(py_env)
         self.alpha = alpha
         self.ranks_file = os.path.join(self.root_dir, 'ranks.json')
         self.load_policies()
 
     def load_policies(self):
-        self.policies = LazyDict(random=RandomPyPolicy(self.pyenv))
+        self.policies = LazyDict(random=(RandomPyPolicy(self.pyenv), tf_agents.policies.random_tf_policy.RandomTFPolicy(time_step_spec=self.tfenv.time_step_spec(), action_spec=self.tfenv.action_spec())))
         self.ranks = ['random']
         if not os.path.isdir(self.root_dir):
             print("Creating policy dir :", self.root_dir)
@@ -107,7 +110,7 @@ class PolicyManager:
         # tfpol = ZZZTFPolicy(saved_model, time_step_spec=self.pyenv.time_step_spec(), action_spec=self.pyenv.action_spec(), name = id)
 
         pol = ZZZPyPolicy(saved_model, name=id)
-        return pol
+        return pol, saved_model
 
     ### registers the given policy and adds it as the first rank
     def register_champion_policy(self, tf_policy: TFPolicy, id: str):
@@ -173,7 +176,7 @@ class SinglePlayerPyEnv(MyPuissance4Env):
         return self.current_policy_id, self.current_policy
 
     def _reset(self):
-        print('_reset')
+        # print('_reset')
         # time to change policy !
         self._select_policy()
         # print(f"ENV switching to policy #{self.current_policy_id}")
@@ -189,7 +192,7 @@ class SinglePlayerPyEnv(MyPuissance4Env):
                 t = time_step
 
                 # print(t)
-            print("auto-step - initial - policy as player 1")
+            # print("auto-step - initial - policy as player 1")
             action_step = self.current_policy.action(t)
 
             # print("Player2 about to play", action2)
@@ -199,7 +202,7 @@ class SinglePlayerPyEnv(MyPuissance4Env):
     def _step(self, action):
 
         # player 1
-        print('auto-step - user playing as player', self._state['next_player']+1)
+        # print('auto-step - user playing as player', self._state['next_player']+1)
         time_step = super()._step(action)
         # print("Player1 played", action, "and got", time_step.reward)
 
@@ -217,7 +220,7 @@ class SinglePlayerPyEnv(MyPuissance4Env):
                 # print(t)
             action2 = self.current_policy.action(t)
 
-            print('auto-step - policy playing as player', self._state['next_player']+1)
+            # print('auto-step - policy playing as player', self._state['next_player']+1)
             time_step = super()._step(action2.action)
             # print("Player2 played", action, "and got", time_step.reward)
             # print("Player2 played", action, "and got ", time_step.reward.numpy()[0])
@@ -271,8 +274,8 @@ class SinglePlayerMultiPolicyPyEnv(SinglePlayerPyEnv):
             self.policy_manager = PolicyManager(root_dir=self.policy_manager_root_dir, py_env=self, alpha=self.alpha)
 
         id, pol = self.policy_manager.pick_policy()
-        self.current_policy_id, self.current_policy = id, pol
-        return id, pol
+        self.current_policy_id, self.current_policy = id, pol[0]
+        return id, pol[0]
 
 
 ### A policy that chooses a random action among the valid ones

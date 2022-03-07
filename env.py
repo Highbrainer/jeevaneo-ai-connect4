@@ -156,9 +156,9 @@ class MyPuissance4Env(py_environment.PyEnvironment):
 
     def _step(self, action: int):
         if self._episode_ended:
-            print("AUTO RESET !", self.current_step)
+            # print("AUTO RESET !", self.current_step)
             self._reset()
-        print("STEP", self.current_step)
+        # print("STEP", self.current_step)
         whoseTurn = self._state['next_player']
         tstep = self._inner_step(action)
         self.cumulated_rewards[whoseTurn] += tstep.reward
@@ -227,7 +227,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             reward = MyPuissance4Env.estimate(self.bb_players[0].bb, self.bb_players[1].bb)
 
         if self._episode_ended:
-            print("====> FIN ", reward)
+            # print("====> FIN ", reward)
             return ts.termination(self._state, reward)
 
         return ts.transition(self._state, reward=reward, discount=DISCOUNT)
@@ -268,7 +268,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         return np.array((self.current_step + 1) % 2)
 
     def _reset(self):
-        print("RESET")
+        # print("RESET")
         self.viewer = None
         self.current_step = -1
         self._episode_ended = False
