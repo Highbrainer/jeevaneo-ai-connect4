@@ -176,7 +176,7 @@ class SinglePlayerPyEnv(MyPuissance4Env):
     def _reset(self):
 
         if self.alternate_player1_player2:
-            self.alternate_player1_player2 = not self.alternate_player1_player2
+            self.as_player1 = not self.as_player1
 
         time_step = super()._reset()
         if not self.as_player1:
