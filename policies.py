@@ -59,11 +59,12 @@ class ZZZTFPolicy(TFPolicy):
 
 
 class PolicyManager:
-    def __init__(self, root_dir: str, py_env: MyPuissance4Env, alpha: float = 0.75):
+    def __init__(self, root_dir: str, py_env: MyPuissance4Env, alpha: float = 0.75, beta : float = 0.2):
         self.root_dir = root_dir
         self.pyenv = py_env
         self.tfenv = tf_agents.environments.TFPyEnvironment(py_env)
         self.alpha = alpha
+        self.beta = beta
         self.ranks_file = os.path.join(self.root_dir, 'ranks.json')
         self.load_policies()
 
@@ -142,6 +143,10 @@ class PolicyManager:
         id = self.ranks[-1]
         return id, self.policies[id]
 
+    def get_random(self):
+        id = 'random'
+        return id, self.policies[id]
+
     def pick_non_champion(self, nb=1):
         if len(self.ranks) < 2:
             return []
@@ -154,6 +159,8 @@ class PolicyManager:
     def pick_policy(self):
         if len(self.ranks) < 2 or random.random() < self.alpha:
             id, pol = self.get_champion()
+        elif random.random() < self.beta:
+            id, pol = self.get_random()
         else:
             id, pol = self.pick_non_champion()[0]
         return id, pol
@@ -169,7 +176,7 @@ class SinglePlayerPyEnv(MyPuissance4Env):
         self.history = []
 
     def __str__(self):
-        return f'{type(self).__name__}(using policy {self.current_policy_id})'
+        return f'{type(self).__name__}(using policy {self.current_policy_id} as player {1+self.as_player1})'
 
     def _select_policy(self):
         raise 'Implement me by extending my class !'
