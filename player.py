@@ -61,10 +61,11 @@ class Player:
     def findMove(self, ts: TimeStep):
 
         # convert observation to a couple of BBs
-        if len(ts.observation.shape) == 3:
-            obs = ts.observation[:, :, 0:2]
+        obs = ts.observation['observation']
+        if len(obs.shape) == 3:
+            obs = obs[:, :, 0:2]
         else:
-            obs = ts.observation[0, :, :, 0:2]
+            obs = obs[0, :, :, 0:2]
         bb_p1 = 0
         bb_p2 = 0
         for row in range(BB.NB_ROWS):
