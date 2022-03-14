@@ -3,7 +3,7 @@ from functools import lru_cache
 import numpy as np
 from bb import BB
 
-# import tensorflow as tf
+import tensorflow as tf
 import tf_agents
 from tf_agents.environments import py_environment
 from tf_agents.specs import array_spec
@@ -93,6 +93,13 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                 dtype=np.int32,
                 minimum=0,
                 maximum=1
+            ),
+            'winner': array_spec.BoundedArraySpec(
+                name="winner",
+                shape=(2,),
+                dtype=np.int32,
+                minimum=0.0,
+                maximum=1.0
             )
         }
         self._time_step_observation = self._observation_spec
@@ -197,6 +204,8 @@ class MyPuissance4Env(py_environment.PyEnvironment):
             self._episode_ended = True
             self.winner = (whoseTurn + 1) % 2
             self._state['next_player'] = 2
+            self._state['winner'] = self._compute_winner()
+            # why not recompute whole state ?
             # print("\n\n\n@@@@@@@@@@ BAD MOVE !!!!! @@@@@@@@@@\n\n\n")
             return ts.termination(self._state, self.REWARD_BAD_MOVE)
 
@@ -241,7 +250,8 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         observation = self._compute_observation()
         valid_actions_mask = self._compute_valid_actions_mask(observation)
         next_player = self._compute_next_player()
-        self._state = {'observation': observation, 'valid_actions': valid_actions_mask, 'next_player': next_player}
+        winner = self._compute_winner()
+        self._state = {'observation': observation, 'valid_actions': valid_actions_mask, 'next_player': next_player, 'winner':winner}
         return self._state
 
     def _compute_observation(self):
@@ -267,6 +277,11 @@ class MyPuissance4Env(py_environment.PyEnvironment):
     def _compute_next_player(self):
         return np.array((self.current_step + 1) % 2)
 
+
+    def _compute_winner(self):
+        return np.array([self.winner==0 or self.winner==2, self.winner==1 or self.winner==2], dtype=np.int32)
+
+
     def _reset(self):
         # print("RESET")
         self.viewer = None
@@ -276,7 +291,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         self.last_reward = 0.0
         # self.bb_player1 = BB()
         # self.bb_player2 = BB()
-        self.winner = 2
+        self.winner = -1
         self.bb_players = [BB(), BB()]
         self._state = self._compute_state()
         return ts.restart(self._state)

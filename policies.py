@@ -299,6 +299,8 @@ class RandomPyPolicy(py_policy.PyPolicy):
 
     def _action(self, ts: TimeStep, state: None):
         free_cols = RandomPyPolicy.free_cols(ts)
+        if len(free_cols)==0:
+            raise "cannot play, the board is full !" + str(ts.observation['observation'])
         random.shuffle(free_cols)
         return PolicyStep(free_cols[0], (), ())
 
