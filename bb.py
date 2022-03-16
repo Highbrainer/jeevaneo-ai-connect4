@@ -126,3 +126,22 @@ class BB:
         for row in range(0, BB.NB_ROWS):
             if self.get(row, col) == 0:
                 return self.set(row, col)
+
+    def getWinningFours(bb:int): # -> (horizontals:int, verticals:int, diagups:int, diagdowns:int)
+        # Check \
+        temp_bboard = bb & (bb >> (BB.SIZE - 1))
+        diagdowns = temp_bboard & (temp_bboard >> (2 * (BB.SIZE - 1)))
+
+        # Check -
+        temp_bboard = bb & (bb >> BB.SIZE)
+        horizons = temp_bboard & (temp_bboard >> 2 * BB.SIZE)
+
+        # Check /
+        temp_bboard = bb & (bb >> (BB.SIZE + 1))
+        diagups = temp_bboard & (temp_bboard >> 2 * (BB.SIZE + 1))
+
+        # Check |
+        temp_bboard = bb & (bb >> 1)
+        verticals = temp_bboard & (temp_bboard >> 2 * 1)
+
+        return horizons, verticals, diagups, diagdowns

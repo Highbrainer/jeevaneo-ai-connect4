@@ -251,7 +251,8 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         valid_actions_mask = self._compute_valid_actions_mask(observation)
         next_player = self._compute_next_player()
         winner = self._compute_winner()
-        self._state = {'observation': observation, 'valid_actions': valid_actions_mask, 'next_player': next_player, 'winner':winner}
+        self._state = {'observation': observation, 'valid_actions': valid_actions_mask, 'next_player': next_player,
+                       'winner': winner}
         return self._state
 
     def _compute_observation(self):
@@ -277,10 +278,11 @@ class MyPuissance4Env(py_environment.PyEnvironment):
     def _compute_next_player(self):
         return np.array((self.current_step + 1) % 2)
 
-
     def _compute_winner(self):
-        return np.array([self.winner==0 or self.winner==2, self.winner==1 or self.winner==2], dtype=np.int32)
+        return np.array([self.winner == 0 or self.winner == 2, self.winner == 1 or self.winner == 2], dtype=np.int32)
 
+    def get_current_winning_fours(self):
+        return BB.getWinningFours(self.bb_players[0].bb), BB.getWinningFours(self.bb_players[1].bb)
 
     def _reset(self):
         # print("RESET")
@@ -302,10 +304,10 @@ class MyPuissance4Env(py_environment.PyEnvironment):
 
     def _colorize_winning_fours_player(self, draw: ImageDraw, bb: BB):
 
+        horizons, verticals, diagups, diagdowns = BB.getWinningFours(bb.bb)
+
         # compute
         # Check \
-        temp_bboard = bb.bb & (bb.bb >> (BB.SIZE - 1))
-        diagdowns = temp_bboard & (temp_bboard >> (2 * (BB.SIZE - 1)))
         if diagdowns:
             bb2 = BB(initial=diagdowns)
             for row in range(BB.NB_ROWS):
@@ -315,8 +317,6 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                         for i in range(4):
                             self._draw_cell(draw, row - i, col + i, color=COLOR_WIN)
         # Check -
-        temp_bboard = bb.bb & (bb.bb >> BB.SIZE)
-        horizons = temp_bboard & (temp_bboard >> 2 * BB.SIZE)
         if horizons:
             bb2 = BB(initial=horizons)
             for row in range(BB.NB_ROWS):
@@ -326,8 +326,6 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                         for i in range(4):
                             self._draw_cell(draw, row, col + i, color=COLOR_WIN)
         # Check /
-        temp_bboard = bb.bb & (bb.bb >> (BB.SIZE + 1))
-        diagups = temp_bboard & (temp_bboard >> 2 * (BB.SIZE + 1))
         if diagups:
             bb2 = BB(initial=diagups)
             for row in range(BB.NB_ROWS):
@@ -337,8 +335,6 @@ class MyPuissance4Env(py_environment.PyEnvironment):
                         for i in range(4):
                             self._draw_cell(draw, row + i, col + i, color=COLOR_WIN)
         # Check |
-        temp_bboard = bb.bb & (bb.bb >> 1)
-        verticals = temp_bboard & (temp_bboard >> 2 * 1)
         if verticals:
             bb2 = BB(initial=verticals)
             for row in range(BB.NB_ROWS):
@@ -390,7 +386,7 @@ class MyPuissance4Env(py_environment.PyEnvironment):
         draw.text((SPACE + 200, FOOTER_TOP + 42), f"{self.last_reward}", font=font_label,
                   fill=COLORS[self._state['next_player']])
 
-        whoseTurn = (self._state['next_player']-1)%2
+        whoseTurn = (self._state['next_player'] - 1) % 2
         if not self._current_time_step.is_last():
             draw.text((SPACE, FOOTER_TOP + 74), "Next player :", font=font_label, fill=WHITE)
             self._draw_circle(draw, SPACE + 200 + RADIUS // 3, FOOTER_TOP + 74 + 10, radius=RADIUS // 3,
